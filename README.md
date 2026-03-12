@@ -1,1 +1,1 @@
-3d Sculpt
+3d Sculpt.
