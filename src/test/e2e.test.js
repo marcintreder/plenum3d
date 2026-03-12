@@ -1,31 +1,37 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Sculpt3D E2E', () => {
+test.describe('Sculpt3D E2E - Advanced Tools', () => {
   test.beforeEach(async ({ page }) => {
-    const url = process.env.TEST_URL || 'https://3d-figma-ai.vercel.app';
-    await page.goto(url); 
+    // Try both standard vite ports
+    try {
+      await page.goto('http://localhost:5173', { timeout: 2000 });
+    } catch (e) {
+      await page.goto('http://localhost:5174');
+    }
   });
 
-  test('should load the Sculpt3D title', async ({ page }) => {
-    const title = page.locator('h1');
-    await expect(title).toContainText('Sculpt');
-    await expect(title).toContainText('3D');
+  test('should switch to Sculpt Mode', async ({ page }) => {
+    await page.click('text=Sculpt Mode');
+    const sculptBtn = page.locator('button:has-text("Sculpt Mode")');
+    await expect(sculptBtn).toHaveClass(/bg-\[#06B6D4\]/);
   });
 
-  test('should open settings modal', async ({ page }) => {
-    await page.click('button[class*="p-2 hover:bg-[#333]"]'); // Settings gear
-    await expect(page.locator('text=Provider Settings')).toBeVisible();
+  test('should open and close Code View', async ({ page }) => {
+    await page.click('text=View R3F Code');
+    await expect(page.locator('h2:has-text("R3F Code Export")')).toBeVisible();
+    await page.click('button:has(svg.lucide-x)');
+    await expect(page.locator('h2:has-text("R3F Code Export")')).not.toBeVisible();
   });
 
-  test('should show inspector when joint is (theoretically) selected', async ({ page }) => {
-    // This test will help us verify the "Joint Click" bug.
-    // If we can't find the inspector text, the logic is broken.
-    const inspectorText = page.locator('text=Select a joint to edit vertices');
-    await expect(inspectorText).toBeVisible();
+  test('should show transform inputs in Object Mode', async ({ page }) => {
+    await page.click('text=Main Chassis');
+    await expect(page.locator('text=Object Settings')).toBeVisible();
+    await expect(page.locator('label:has-text("position")')).toBeVisible();
   });
 
-  test('should have a functional download button', async ({ page }) => {
-    const downloadBtn = page.locator('text=Download .GLB');
-    await expect(downloadBtn).toBeEnabled();
+  test('should delete object with Backspace shortcut', async ({ page }) => {
+    await page.click('text=Main Chassis');
+    await page.keyboard.press('Backspace');
+    await expect(page.locator('text=Main Chassis')).not.toBeVisible();
   });
 });

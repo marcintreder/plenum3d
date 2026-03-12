@@ -1,19 +1,43 @@
 import React, { useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Grid } from "@react-three/drei";
-import { Settings, Layers, Box, MousePointer2, Download, Circle, Square, Cylinder } from "lucide-react";
+import { 
+  Settings, Box, MousePointer2, Download, Circle, Square, 
+  Triangle, Cylinder as CylinderIcon, Code, Scissors, Move,
+  Undo2, Redo2
+} from "lucide-react";
 import EditableMesh from "./EditableMesh";
 import JointManipulator from "./JointManipulator";
 import Inspector from "./Inspector";
 import Exporter from "./Exporter";
+import CodeView from "./CodeView";
 import useStore from "./useStore";
+import useKeyboardShortcuts from "./useKeyboardShortcuts";
 import { generate3DModel } from "./aiService";
 
 const App = () => {
   const [isModalOpen, setModalOpen] = useState(false);
+  const [isCodeViewOpen, setCodeViewOpen] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [keys, setKeys] = useState(() => JSON.parse(localStorage.getItem("3d_sculpt_keys") || "{}"));
-  const { setSelectedJointIndex, isGenerating, setGenerating, setGeometry, setExportRequested, addPrimitive } = useStore();
+  
+  const { 
+    setSelectedJointIndex, 
+    isGenerating, 
+    setGenerating, 
+    setGeometry, 
+    setExportRequested, 
+    addPrimitive,
+    editMode,
+    setEditMode,
+    undo,
+    redo,
+    historyIndex,
+    history
+  } = useStore();
+
+  // Activate global shortcuts
+  useKeyboardShortcuts();
 
   const saveKey = (provider, value) => {
     const newKeys = { ...keys, [provider]: value };
@@ -39,63 +63,91 @@ const App = () => {
   };
 
   return (
-    <div className="flex h-screen w-screen bg-[#0F0F0F] text-white overflow-hidden font-sans">
+    <div className="flex h-screen w-screen bg-[#0F0F0F] text-white overflow-hidden font-sans select-none">
       {/* Sidebar */}
       <div className="w-64 bg-[#1A1A1A] border-r border-[#333] p-4 flex flex-col gap-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-black tracking-tighter text-white">Sculpt<span className="text-[#7C3AED]">3D</span></h1>
-          <button 
-            onClick={() => setModalOpen(true)}
-            className="p-2 hover:bg-[#333] rounded-lg transition-colors text-gray-400 hover:text-white"
-          >
-            <Settings size={18} />
-          </button>
+          <h1 className="text-xl font-black tracking-tighter text-white italic">Sculpt<span className="text-[#7C3AED]">3D</span></h1>
+          <div className="flex gap-1">
+            <button 
+              onClick={undo}
+              disabled={historyIndex <= 0}
+              className="p-1.5 hover:bg-[#333] rounded-lg text-gray-500 hover:text-white disabled:opacity-20"
+            >
+              <Undo2 size={14} />
+            </button>
+            <button 
+              onClick={redo}
+              disabled={historyIndex >= history.length - 1}
+              className="p-1.5 hover:bg-[#333] rounded-lg text-gray-500 hover:text-white disabled:opacity-20"
+            >
+              <Redo2 size={14} />
+            </button>
+            <button 
+              onClick={() => setModalOpen(true)}
+              className="p-1.5 hover:bg-[#333] rounded-lg transition-colors text-gray-400 hover:text-white"
+            >
+              <Settings size={14} />
+            </button>
+          </div>
         </div>
 
         <div className="flex flex-col gap-1">
-          <div className="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-2">Tools</div>
-          <button className="flex items-center gap-3 p-2 bg-[#7C3AED]/10 text-[#7C3AED] rounded-lg text-sm font-medium">
-            <MousePointer2 size={16} /> Select
+          <div className="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-2">Editor Mode</div>
+          <button 
+            onClick={() => setEditMode('object')}
+            className={`flex items-center gap-3 p-2 rounded-lg text-sm font-medium transition-all ${
+              editMode === 'object' ? 'bg-[#7C3AED] text-white shadow-[0_0_15px_rgba(124,58,237,0.4)]' : 'text-gray-400 hover:bg-[#333]'
+            }`}
+          >
+            <Move size={16} /> Object Mode <span className="ml-auto text-[9px] opacity-50 font-mono">V</span>
           </button>
-          <button className="flex items-center gap-3 p-2 hover:bg-[#333] rounded-lg text-sm text-gray-400">
-            <Layers size={16} /> Layers
+          <button 
+            onClick={() => setEditMode('vertex')}
+            className={`flex items-center gap-3 p-2 rounded-lg text-sm font-medium transition-all ${
+              editMode === 'vertex' ? 'bg-[#06B6D4] text-white shadow-[0_0_15px_rgba(6,182,212,0.4)]' : 'text-gray-400 hover:bg-[#333]'
+            }`}
+          >
+            <Scissors size={16} /> Sculpt Mode <span className="ml-auto text-[9px] opacity-50 font-mono">J</span>
           </button>
         </div>
 
         <div className="flex flex-col gap-1 mt-4">
           <div className="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-2">Primitives</div>
           <div className="grid grid-cols-2 gap-2">
-            <button 
-              onClick={() => addPrimitive('cube')}
-              className="flex items-center gap-2 p-2 hover:bg-[#333] rounded-lg text-xs text-gray-400 hover:text-white transition-colors"
-            >
-              <Square size={14} /> Cube
-            </button>
-            <button 
-              onClick={() => addPrimitive('sphere')}
-              className="flex items-center gap-2 p-2 hover:bg-[#333] rounded-lg text-xs text-gray-400 hover:text-white transition-colors"
-            >
-              <Circle size={14} /> Sphere
-            </button>
+            {[
+              { id: 'cube', icon: Square, label: 'Cube' },
+              { id: 'sphere', icon: Circle, label: 'Sphere' },
+              { id: 'cylinder', icon: CylinderIcon, label: 'Cylinder' },
+              { id: 'cone', icon: Triangle, label: 'Cone', class: 'rotate-180' }
+            ].map(prim => (
+              <button 
+                key={prim.id}
+                onClick={() => addPrimitive(prim.id)}
+                className="flex items-center gap-2 p-2 hover:bg-[#333] rounded-lg text-[10px] text-gray-400 hover:text-white transition-colors border border-transparent hover:border-[#333]"
+              >
+                <prim.icon size={12} className={prim.class} /> {prim.label}
+              </button>
+            ))}
           </div>
         </div>
 
         <div className="flex flex-col gap-1 mt-4">
-          <div className="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-2">Assets</div>
-          <div className="p-3 bg-[#0F0F0F] border border-[#333] rounded-xl flex items-center gap-3 cursor-pointer hover:border-[#7C3AED] transition-colors">
-            <div className="w-8 h-8 bg-[#7C3AED] rounded-lg flex items-center justify-center">
-               <Box size={16} color="white" />
-            </div>
-            <span className="text-sm font-medium">Generic Mesh</span>
-          </div>
+          <div className="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-2">Developer</div>
+          <button 
+            onClick={() => setCodeViewOpen(true)}
+            className="flex items-center gap-3 p-2 hover:bg-[#333] rounded-lg text-sm text-gray-400 hover:text-white transition-all"
+          >
+            <Code size={16} /> View R3F Code
+          </button>
         </div>
 
         <div className="flex flex-col gap-1 mt-auto">
           <button 
             onClick={() => setExportRequested(true)}
-            className="flex items-center justify-center gap-2 p-3 bg-white text-black rounded-xl text-sm font-bold hover:bg-gray-200 transition-all shadow-lg"
+            className="flex items-center justify-center gap-2 p-3 bg-white text-black rounded-xl text-sm font-bold hover:bg-gray-200 transition-all shadow-lg active:scale-95"
           >
-            <Download size={16} /> Download .GLB
+            <Download size={16} /> Export .GLB
           </button>
         </div>
       </div>
@@ -103,7 +155,7 @@ const App = () => {
       {/* Main Viewport */}
       <div className="flex-1 relative bg-black">
         <Canvas 
-          camera={{ position: [3, 3, 3], fov: 45 }} 
+          camera={{ position: [5, 5, 5], fov: 45 }} 
           className="transition-opacity duration-500 ease-in-out"
           onPointerMissed={() => setSelectedJointIndex(null)}
         >
@@ -121,11 +173,11 @@ const App = () => {
         </Canvas>
 
         {/* Floating Prompt Bar */}
-        <div className="absolute top-8 left-1/2 -translate-x-1/2 w-full max-w-xl px-4 z-10 transition-all duration-300 transform hover:scale-[1.01]" onClick={(e) => e.stopPropagation()}>
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-full max-w-xl px-4 z-10 transition-all duration-300 transform hover:scale-[1.01]" onClick={(e) => e.stopPropagation()}>
           <div className="relative group">
             <input 
               type="text" 
-              placeholder={isGenerating ? "Consulting the AI geometry engine..." : "What shall we create today? (e.g. 'A futuristic car')"}
+              placeholder={isGenerating ? "Synthesizing geometry..." : "AI Command: 'A vintage radio'"}
               disabled={isGenerating}
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
@@ -141,6 +193,9 @@ const App = () => {
 
       {/* Right Sidebar: Inspector */}
       <Inspector />
+
+      {/* Overlays */}
+      <CodeView isOpen={isCodeViewOpen} onClose={() => setCodeViewOpen(false)} />
 
       {/* BYOK Modal */}
       {isModalOpen && (
