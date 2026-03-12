@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Grid } from "@react-three/drei";
-import { Settings, Layers, Box, MousePointer2, Download } from "lucide-react";
+import { Settings, Layers, Box, MousePointer2, Download, Circle, Square, Cylinder } from "lucide-react";
 import EditableMesh from "./EditableMesh";
 import JointManipulator from "./JointManipulator";
 import Inspector from "./Inspector";
@@ -13,7 +13,7 @@ const App = () => {
   const [isModalOpen, setModalOpen] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [keys, setKeys] = useState(() => JSON.parse(localStorage.getItem("3d_sculpt_keys") || "{}"));
-  const { setSelectedJointIndex, isGenerating, setGenerating, setGeometry, setExportRequested } = useStore();
+  const { setSelectedJointIndex, isGenerating, setGenerating, setGeometry, setExportRequested, addPrimitive } = useStore();
 
   const saveKey = (provider, value) => {
     const newKeys = { ...keys, [provider]: value };
@@ -63,6 +63,24 @@ const App = () => {
         </div>
 
         <div className="flex flex-col gap-1 mt-4">
+          <div className="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-2">Primitives</div>
+          <div className="grid grid-cols-2 gap-2">
+            <button 
+              onClick={() => addPrimitive('cube')}
+              className="flex items-center gap-2 p-2 hover:bg-[#333] rounded-lg text-xs text-gray-400 hover:text-white transition-colors"
+            >
+              <Square size={14} /> Cube
+            </button>
+            <button 
+              onClick={() => addPrimitive('sphere')}
+              className="flex items-center gap-2 p-2 hover:bg-[#333] rounded-lg text-xs text-gray-400 hover:text-white transition-colors"
+            >
+              <Circle size={14} /> Sphere
+            </button>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-1 mt-4">
           <div className="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-2">Assets</div>
           <div className="p-3 bg-[#0F0F0F] border border-[#333] rounded-xl flex items-center gap-3 cursor-pointer hover:border-[#7C3AED] transition-colors">
             <div className="w-8 h-8 bg-[#7C3AED] rounded-lg flex items-center justify-center">
@@ -83,8 +101,12 @@ const App = () => {
       </div>
 
       {/* Main Viewport */}
-      <div className="flex-1 relative bg-black" onClick={() => setSelectedJointIndex(null)}>
-        <Canvas camera={{ position: [3, 3, 3], fov: 45 }} className="transition-opacity duration-500 ease-in-out">
+      <div className="flex-1 relative bg-black">
+        <Canvas 
+          camera={{ position: [3, 3, 3], fov: 45 }} 
+          className="transition-opacity duration-500 ease-in-out"
+          onPointerMissed={() => setSelectedJointIndex(null)}
+        >
           <color attach="background" args={["#0F0F0F"]} />
           <ambientLight intensity={1.5} />
           <directionalLight position={[10, 10, 10]} intensity={1.5} castShadow />
