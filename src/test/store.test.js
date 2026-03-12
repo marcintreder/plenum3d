@@ -1,35 +1,42 @@
 import { describe, it, expect } from 'vitest';
 import useStore from '../useStore';
 
-describe('Sculpt3D Store', () => {
-  it('should initialize with default vertices and indices', () => {
+describe('Sculpt3D Multi-Object Store', () => {
+  it('should initialize with the F1 Car object', () => {
     const state = useStore.getState();
-    expect(state.vertices.length).toBeGreaterThan(0);
-    expect(state.indices.length).toBeGreaterThan(0);
+    expect(state.objects.length).toBe(1);
+    expect(state.objects[0].name).toBe('F1 Car');
   });
 
-  it('should update vertices via updateVertex', () => {
-    const { updateVertex } = useStore.getState();
-    const newPos = [10, 10, 10];
-    updateVertex(0, newPos);
+  it('should add a new primitive object', () => {
+    const { addPrimitive } = useStore.getState();
+    addPrimitive('cube');
     
     const state = useStore.getState();
-    expect(state.vertices[0]).toEqual(newPos);
+    expect(state.objects.length).toBe(2);
+    expect(state.objects[1].name).toContain('Cube');
+    expect(state.selectedObjectId).toBe(state.objects[1].id);
   });
 
-  it('should set geometry correctly', () => {
-    const { setGeometry } = useStore.getState();
-    const mockGeo = {
-      vertices: [[0,0,0], [1,1,1]],
-      indices: [0,1,0],
-      color: '#ff0000',
-      materialType: 'physical'
-    };
+  it('should update a vertex in a specific object', () => {
+    const { updateVertex, objects } = useStore.getState();
+    const targetObj = objects[0];
+    const newPos = [9, 9, 9];
     
-    setGeometry(mockGeo);
+    updateVertex(targetObj.id, 0, newPos);
+    
     const state = useStore.getState();
-    expect(state.vertices).toEqual(mockGeo.vertices);
-    expect(state.color).toBe(mockGeo.color);
-    expect(state.materialType).toBe(mockGeo.materialType);
+    expect(state.objects[0].vertices[0]).toEqual(newPos);
+  });
+
+  it('should delete an object', () => {
+    const { deleteObject, objects } = useStore.getState();
+    const idToDelete = objects[1].id;
+    
+    deleteObject(idToDelete);
+    
+    const state = useStore.getState();
+    expect(state.objects.length).toBe(1);
+    expect(state.objects.find(o => o.id === idToDelete)).toBeUndefined();
   });
 });

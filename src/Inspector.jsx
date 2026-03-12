@@ -1,134 +1,118 @@
 import React from 'react';
+import { Layers, Eye, EyeOff, Trash2 } from 'lucide-react';
 import useStore from './useStore';
 
 const Inspector = () => {
   const { 
-    vertices, 
-    selectedJointIndex, 
-    updateVertex,
-    color,
-    materialType,
-    metalness,
-    roughness,
-    setColor,
-    setMaterialType,
-    setMetalness,
-    setRoughness
+    objects, 
+    selectedObjectId, 
+    setSelectedObjectId, 
+    updateObject, 
+    deleteObject,
+    selectedJointIndex 
   } = useStore();
-  
-  const renderMaterialSection = () => (
-    <div className="flex flex-col gap-4">
-      <h2 className="text-[10px] uppercase tracking-widest text-gray-500 font-bold">Material</h2>
-      
-      <div className="flex flex-col gap-2">
-        <label className="text-[10px] text-gray-400 uppercase">Color</label>
-        <div className="flex items-center gap-2">
-          <input
-            type="color"
-            value={color}
-            onChange={(e) => setColor(e.target.value)}
-            className="w-8 h-8 rounded border border-[#333] bg-transparent cursor-pointer"
-          />
-          <input
-            type="text"
-            value={color}
-            onChange={(e) => setColor(e.target.value)}
-            className="bg-[#0F0F0F] border border-[#333] p-2 rounded-lg text-xs w-full focus:border-[#7C3AED] outline-none"
-          />
-        </div>
-      </div>
 
-      <div className="flex flex-col gap-2">
-        <label className="text-[10px] text-gray-400 uppercase">Type</label>
-        <select
-          value={materialType}
-          onChange={(e) => setMaterialType(e.target.value)}
-          className="bg-[#0F0F0F] border border-[#333] p-2 rounded-lg text-xs w-full focus:border-[#7C3AED] outline-none"
-        >
-          <option value="standard">Standard</option>
-          <option value="physical">Physical</option>
-          <option value="wireframe">Wireframe</option>
-        </select>
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <div className="flex justify-between">
-          <label className="text-[10px] text-gray-400 uppercase">Metalness</label>
-          <span className="text-[10px] text-gray-500">{metalness.toFixed(2)}</span>
-        </div>
-        <input
-          type="range"
-          min="0"
-          max="1"
-          step="0.01"
-          value={metalness}
-          onChange={(e) => setMetalness(parseFloat(e.target.value))}
-          className="w-full accent-[#7C3AED]"
-        />
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <div className="flex justify-between">
-          <label className="text-[10px] text-gray-400 uppercase">Roughness</label>
-          <span className="text-[10px] text-gray-500">{roughness.toFixed(2)}</span>
-        </div>
-        <input
-          type="range"
-          min="0"
-          max="1"
-          step="0.01"
-          value={roughness}
-          onChange={(e) => setRoughness(parseFloat(e.target.value))}
-          className="w-full accent-[#7C3AED]"
-        />
-      </div>
-    </div>
-  );
-
-  if (selectedJointIndex === null) {
-    return (
-      <div className="w-64 bg-[#1A1A1A] border-l border-[#333] p-4 flex flex-col gap-8">
-        {renderMaterialSection()}
-        <div className="text-gray-500 text-[10px] italic border-t border-[#333] pt-4">
-          Select a joint to edit vertices
-        </div>
-      </div>
-    );
-  }
-
-  const vertex = vertices[selectedJointIndex];
-
-  const handleChange = (axis, value) => {
-    const newVertex = [...vertex];
-    newVertex[axis] = parseFloat(value) || 0;
-    updateVertex(selectedJointIndex, newVertex);
-  };
+  const selectedObject = objects.find(o => o.id === selectedObjectId);
 
   return (
-    <div className="w-64 bg-[#1A1A1A] border-l border-[#333] p-4 flex flex-col gap-8 overflow-y-auto">
-      <div>
-        <h2 className="text-[10px] uppercase tracking-widest text-gray-500 mb-4 font-bold">Joint Transform</h2>
-        <div className="space-y-4">
-          <div className="flex flex-col gap-2">
-            <span className="text-[10px] text-gray-400">Joint ID: {selectedJointIndex}</span>
-            {['X', 'Y', 'Z'].map((label, i) => (
-              <div key={label} className="flex items-center gap-2">
-                <span className="text-[10px] text-gray-500 w-4">{label}</span>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={vertex[i].toFixed(2)}
-                  onChange={(e) => handleChange(i, e.target.value)}
-                  className="bg-[#0F0F0F] border border-[#333] p-2 rounded-lg text-xs w-full focus:border-[#7C3AED] outline-none"
-                />
+    <div className="w-80 bg-[#1A1A1A] border-l border-[#333] flex flex-col overflow-hidden">
+      {/* Layer List */}
+      <div className="flex-1 flex flex-col border-b border-[#333]">
+        <div className="p-4 border-b border-[#333] flex items-center gap-2">
+          <Layers size={16} className="text-gray-400" />
+          <span className="text-xs uppercase tracking-widest text-gray-400 font-bold">Layers</span>
+        </div>
+        <div className="flex-1 overflow-y-auto p-2 space-y-1">
+          {objects.map(obj => (
+            <div 
+              key={obj.id}
+              onClick={() => setSelectedObjectId(obj.id)}
+              className={`group flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all ${
+                selectedObjectId === obj.id ? 'bg-[#7C3AED]/20 border border-[#7C3AED]/30' : 'hover:bg-[#222] border border-transparent'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    updateObject(obj.id, { visible: !obj.visible });
+                  }}
+                  className="text-gray-500 hover:text-white"
+                >
+                  {obj.visible ? <Eye size={14} /> : <EyeOff size={14} />}
+                </button>
+                <span className={`text-sm ${selectedObjectId === obj.id ? 'text-white' : 'text-gray-400'}`}>
+                  {obj.name}
+                </span>
               </div>
-            ))}
-          </div>
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  deleteObject(obj.id);
+                }}
+                className="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-500 transition-opacity"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
         </div>
       </div>
 
-      <div className="border-t border-[#333] pt-8">
-        {renderMaterialSection()}
+      {/* Properties Inspector */}
+      <div className="flex-1 p-4 overflow-y-auto">
+        <div className="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-4">Properties</div>
+        
+        {selectedObject ? (
+          <div className="space-y-6">
+            <div className="space-y-3">
+              <label className="text-xs text-gray-500">Object Name</label>
+              <input 
+                type="text"
+                value={selectedObject.name}
+                onChange={(e) => updateObject(selectedObject.id, { name: e.target.value })}
+                className="w-full bg-[#0F0F0F] border border-[#333] p-2 rounded-lg text-sm outline-none focus:border-[#7C3AED]"
+              />
+            </div>
+
+            <div className="space-y-3">
+              <label className="text-xs text-gray-500">Color</label>
+              <div className="flex items-center gap-3">
+                <input 
+                  type="color" 
+                  value={selectedObject.color}
+                  onChange={(e) => updateObject(selectedObject.id, { color: e.target.value })}
+                  className="w-8 h-8 bg-transparent border-none cursor-pointer"
+                />
+                <span className="text-sm font-mono text-gray-400 uppercase">{selectedObject.color}</span>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <label className="text-xs text-gray-500">Material Type</label>
+              <select 
+                value={selectedObject.materialType}
+                onChange={(e) => updateObject(selectedObject.id, { materialType: e.target.value })}
+                className="w-full bg-[#0F0F0F] border border-[#333] p-2 rounded-lg text-sm outline-none appearance-none cursor-pointer"
+              >
+                <option value="standard">Standard</option>
+                <option value="physical">Physical</option>
+                <option value="wireframe">Wireframe</option>
+              </select>
+            </div>
+
+            <div className="pt-4 border-t border-[#333]">
+              <div className="text-xs text-[#06B6D4] font-medium mb-1">
+                {selectedJointIndex !== null ? `Joint #${selectedJointIndex} Selected` : 'Select a joint to edit vertices'}
+              </div>
+              <p className="text-[10px] text-gray-500">Use the handles in the viewport to transform geometry.</p>
+            </div>
+          </div>
+        ) : (
+          <div className="h-full flex items-center justify-center text-gray-600 text-sm italic">
+            Select a layer to inspect
+          </div>
+        )}
       </div>
     </div>
   );

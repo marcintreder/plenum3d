@@ -1,30 +1,31 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useRef } from 'react';
 import { PivotControls, Sphere } from '@react-three/drei';
 import * as THREE from 'three';
 import useStore from './useStore';
 
 const JointManipulator = () => {
-  const vertices = useStore((state) => state.vertices);
+  const objects = useStore((state) => state.objects);
+  const selectedObjectId = useStore((state) => state.selectedObjectId);
   const selectedJointIndex = useStore((state) => state.selectedJointIndex);
   const setSelectedJointIndex = useStore((state) => state.setSelectedJointIndex);
   const updateVertex = useStore((state) => state.updateVertex);
-  
+
+  const selectedObject = objects.find(o => o.id === selectedObjectId);
+  if (!selectedObject || !selectedObject.visible) return null;
+
   const onDrag = (matrix) => {
     if (selectedJointIndex === null) return;
-    
-    // Extract position from matrix
     const position = new THREE.Vector3();
-    const quaternion = new THREE.Quaternion();
-    const scale = new THREE.Vector3();
-    matrix.decompose(position, quaternion, scale);
-    
-    updateVertex(selectedJointIndex, [position.x, position.y, position.z]);
+    const q = new THREE.Quaternion();
+    const s = new THREE.Vector3();
+    matrix.decompose(position, q, s);
+    updateVertex(selectedObjectId, selectedJointIndex, [position.x, position.y, position.z]);
   };
 
   return (
     <group>
-      {vertices.map((vertex, index) => (
-        <React.Fragment key={index}>
+      {selectedObject.vertices.map((vertex, index) => (
+        <React.Fragment key={`${selectedObjectId}-${index}`}>
           {selectedJointIndex === index ? (
             <PivotControls
               depthTest={false}
@@ -34,14 +35,12 @@ const JointManipulator = () => {
               lineWidth={2}
               fixed
               activeAxes={[true, true, true]}
+              displayValues={false}
             >
               <Sphere
                 args={[0.05, 16, 16]}
                 position={vertex}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedJointIndex(index);
-                }}
+                onClick={(e) => { e.stopPropagation(); setSelectedJointIndex(index); }}
               >
                 <meshStandardMaterial color="#06B6D4" emissive="#06B6D4" emissiveIntensity={2} />
               </Sphere>
@@ -50,10 +49,7 @@ const JointManipulator = () => {
             <Sphere
               args={[0.04, 16, 16]}
               position={vertex}
-              onClick={(e) => {
-                e.stopPropagation();
-                setSelectedJointIndex(index);
-              }}
+              onClick={(e) => { e.stopPropagation(); setSelectedJointIndex(index); }}
             >
               <meshStandardMaterial color="#555" />
             </Sphere>
