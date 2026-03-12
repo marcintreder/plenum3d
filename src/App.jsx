@@ -12,13 +12,13 @@ import { generate3DModel } from "./aiService";
 const App = () => {
   const [isModalOpen, setModalOpen] = useState(false);
   const [prompt, setPrompt] = useState("");
-  const [keys, setKeys] = useState(() => JSON.parse(localStorage.getItem("3d_figma_keys") || "{}"));
+  const [keys, setKeys] = useState(() => JSON.parse(localStorage.getItem("3d_sculpt_keys") || "{}"));
   const { setSelectedJointIndex, isGenerating, setGenerating, setGeometry, setExportRequested } = useStore();
 
   const saveKey = (provider, value) => {
     const newKeys = { ...keys, [provider]: value };
     setKeys(newKeys);
-    localStorage.setItem("3d_figma_keys", JSON.stringify(newKeys));
+    localStorage.setItem("3d_sculpt_keys", JSON.stringify(newKeys));
   };
 
   const handleKeyDown = async (e) => {
@@ -43,7 +43,7 @@ const App = () => {
       {/* Sidebar */}
       <div className="w-64 bg-[#1A1A1A] border-r border-[#333] p-4 flex flex-col gap-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-black tracking-tighter text-white">Figma<span className="text-[#7C3AED]">3D</span></h1>
+          <h1 className="text-xl font-black tracking-tighter text-white">Sculpt<span className="text-[#7C3AED]">3D</span></h1>
           <button 
             onClick={() => setModalOpen(true)}
             className="p-2 hover:bg-[#333] rounded-lg transition-colors text-gray-400 hover:text-white"
