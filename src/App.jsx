@@ -6,16 +6,35 @@ import EditableMesh from "./EditableMesh";
 import JointManipulator from "./JointManipulator";
 import Inspector from "./Inspector";
 import useStore from "./useStore";
+import { generate3DModel } from "./aiService";
 
 const App = () => {
   const [isModalOpen, setModalOpen] = useState(false);
+  const [prompt, setPrompt] = useState("");
   const [keys, setKeys] = useState(() => JSON.parse(localStorage.getItem("3d_figma_keys") || "{}"));
-  const { setSelectedJointIndex } = useStore();
+  const { setSelectedJointIndex, isGenerating, setGenerating, setGeometry } = useStore();
 
   const saveKey = (provider, value) => {
     const newKeys = { ...keys, [provider]: value };
     setKeys(newKeys);
     localStorage.setItem("3d_figma_keys", JSON.stringify(newKeys));
+  };
+
+  const handleKeyDown = async (e) => {
+    if (e.key === "Enter" && prompt.trim() && !isGenerating) {
+      setGenerating(true);
+      try {
+        const ollamaUrl = keys["Ollama URL"] || "http://localhost:11434";
+        const newGeometry = await generate3DModel(prompt, ollamaUrl);
+        setGeometry(newGeometry);
+        setPrompt("");
+      } catch (error) {
+        console.error("Generation failed", error);
+        alert("Failed to generate model. Ensure Ollama is running and accessible.");
+      } finally {
+        setGenerating(false);
+      }
+    }
   };
 
   return (
@@ -69,15 +88,19 @@ const App = () => {
         </Canvas>
 
         {/* Floating Prompt Bar */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-full max-w-xl px-4" onClick={(e) => e.stopPropagation()}>
+        <div className="absolute top-8 left-1/2 -translate-x-1/2 w-full max-w-xl px-4 z-10" onClick={(e) => e.stopPropagation()}>
           <div className="relative group">
             <input 
               type="text" 
-              placeholder="Describe modifications... (e.g. 'Make it taller')"
-              className="w-full bg-[#1A1A1A]/90 backdrop-blur-xl border border-[#333] p-5 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] outline-none focus:border-[#7C3AED] transition-all text-sm pr-12"
+              placeholder={isGenerating ? "Generating 3D mesh..." : "Describe a 3D shape... (e.g. 'A pyramid')"}
+              disabled={isGenerating}
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className={`w-full bg-[#1A1A1A]/80 backdrop-blur-xl border ${isGenerating ? 'border-[#7C3AED] animate-pulse' : 'border-[#333]'} p-4 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] outline-none focus:border-[#7C3AED] transition-all text-sm pr-12 text-white`}
             />
             <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] bg-[#333] px-2 py-1 rounded-md text-gray-400 font-mono">
-              ⏎
+              {isGenerating ? "..." : "⏎"}
             </div>
           </div>
         </div>

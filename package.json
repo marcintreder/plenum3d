@@ -3,22 +3,15 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/samwiseagent/3d-figma-ai.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "bugs": {
-    "url": "https://github.com/samwiseagent/3d-figma-ai/issues"
-  },
-  "homepage": "https://github.com/samwiseagent/3d-figma-ai#readme",
   "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.5.0",
     "lucide-react": "^0.577.0",
@@ -26,6 +19,8 @@
     "zustand": "^5.0.11"
   },
   "devDependencies": {
+    "vite": "^6.0.0",
+    "@vitejs/plugin-react": "^4.3.0",
     "autoprefixer": "^10.4.27",
     "postcss": "^8.5.8",
     "tailwindcss": "^4.2.1"

@@ -1,24 +1,15 @@
-import React, { useMemo, useEffect, useRef } from 'react';
-import * as THREE from 'three';
+import React, { useMemo, useRef } from 'react';
 import useStore from './useStore';
 
 const EditableMesh = () => {
   const { vertices, indices } = useStore();
-  const geometryRef = useRef();
 
   const flatVertices = useMemo(() => new Float32Array(vertices.flat()), [vertices]);
-
-  useEffect(() => {
-    if (geometryRef.current) {
-      geometryRef.current.attributes.position.array.set(flatVertices);
-      geometryRef.current.attributes.position.needsUpdate = true;
-      geometryRef.current.computeVertexNormals();
-    }
-  }, [flatVertices]);
+  const flatIndices = useMemo(() => new Uint16Array(indices), [indices]);
 
   return (
     <mesh>
-      <bufferGeometry ref={geometryRef}>
+      <bufferGeometry>
         <bufferAttribute
           attach="attributes-position"
           count={vertices.length}
@@ -28,7 +19,7 @@ const EditableMesh = () => {
         <bufferAttribute
           attach="index"
           count={indices.length}
-          array={new Uint16Array(indices)}
+          array={flatIndices}
           itemSize={1}
         />
       </bufferGeometry>

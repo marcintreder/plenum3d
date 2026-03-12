@@ -14,8 +14,16 @@ const useStore = create((set) => ({
     1, 2, 6, 1, 6, 5
   ],
   selectedJointIndex: null,
+  isGenerating: false,
   
   setSelectedJointIndex: (index) => set({ selectedJointIndex: index }),
+  setGenerating: (isGenerating) => set({ isGenerating }),
+  
+  setGeometry: ({ vertices, indices }) => set({ 
+    vertices, 
+    indices, 
+    selectedJointIndex: null 
+  }),
   
   updateVertex: (index, position) => set((state) => {
     const newVertices = [...state.vertices];

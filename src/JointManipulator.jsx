@@ -4,7 +4,10 @@ import * as THREE from 'three';
 import useStore from './useStore';
 
 const JointManipulator = () => {
-  const { vertices, selectedJointIndex, setSelectedJointIndex, updateVertex } = useStore();
+  const vertices = useStore((state) => state.vertices);
+  const selectedJointIndex = useStore((state) => state.selectedJointIndex);
+  const setSelectedJointIndex = useStore((state) => state.setSelectedJointIndex);
+  const updateVertex = useStore((state) => state.updateVertex);
   
   const onDrag = (matrix) => {
     if (selectedJointIndex === null) return;
@@ -30,6 +33,7 @@ const JointManipulator = () => {
               scale={0.5}
               lineWidth={2}
               fixed
+              activeAxes={[true, true, true]}
             >
               <Sphere
                 args={[0.05, 16, 16]}
@@ -39,7 +43,7 @@ const JointManipulator = () => {
                   setSelectedJointIndex(index);
                 }}
               >
-                <meshStandardMaterial color="#7C3AED" emissive="#7C3AED" emissiveIntensity={2} />
+                <meshStandardMaterial color="#06B6D4" emissive="#06B6D4" emissiveIntensity={2} />
               </Sphere>
             </PivotControls>
           ) : (
