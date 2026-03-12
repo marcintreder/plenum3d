@@ -8,13 +8,20 @@ const EditableMesh = () => {
   const meshRef = useRef();
   const [displayColor] = useState(() => new THREE.Color(color));
 
-  const flatVertices = useMemo(() => new Float32Array(vertices.flat()), [vertices]);
-  const flatIndices = useMemo(() => new Uint32Array(indices), [indices]);
+  const flatVertices = useMemo(() => {
+    if (!vertices || vertices.length === 0) return new Float32Array([0,0,0, 1,0,0, 0,1,0]);
+    return new Float32Array(vertices.flat());
+  }, [vertices]);
+
+  const flatIndices = useMemo(() => {
+    if (!indices || indices.length === 0) return new Uint32Array([0,1,2]);
+    return new Uint32Array(indices);
+  }, [indices]);
 
   // Smooth color transition
   useFrame(() => {
-    if (meshRef.current) {
-      displayColor.lerp(new THREE.Color(color), 0.1);
+    if (meshRef.current && meshRef.current.material) {
+      displayColor.lerp(new THREE.Color(color || '#7C3AED'), 0.1);
       meshRef.current.material.color.copy(displayColor);
       
       // Gentle floating animation
@@ -25,7 +32,7 @@ const EditableMesh = () => {
   // Scale in effect on new geometry
   useEffect(() => {
     if (meshRef.current) {
-      meshRef.current.scale.set(0, 0, 0);
+      meshRef.current.scale.set(0.1, 0.1, 0.1);
     }
   }, [vertices]);
 
@@ -37,8 +44,8 @@ const EditableMesh = () => {
 
   const MaterialComponent = useMemo(() => {
     const props = {
-      metalness,
-      roughness,
+      metalness: metalness ?? 0.5,
+      roughness: roughness ?? 0.5,
       transparent: true,
       opacity: 0.9,
     };
@@ -53,18 +60,35 @@ const EditableMesh = () => {
     }
   }, [materialType, metalness, roughness]);
 
+  const geomRef = useRef();
+
+  useEffect(() => {
+    if (geomRef.current) {
+      geomRef.current.computeVertexNormals();
+    }
+  }, [vertices, indices]);
+
+  if (!vertices || vertices.length < 3 || !indices || indices.length < 3) {
+    return (
+      <mesh position={[0, 0, 0]}>
+        <octahedronGeometry args={[1, 0]} />
+        <meshStandardMaterial color="#333" wireframe />
+      </mesh>
+    );
+  }
+
   return (
     <mesh ref={meshRef}>
-      <bufferGeometry>
+      <bufferGeometry ref={geomRef}>
         <bufferAttribute
           attach="attributes-position"
-          count={vertices.length}
+          count={flatVertices.length / 3}
           array={flatVertices}
           itemSize={3}
         />
         <bufferAttribute
           attach="index"
-          count={indices.length}
+          count={flatIndices.length}
           array={flatIndices}
           itemSize={1}
         />
