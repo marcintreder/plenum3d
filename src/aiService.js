@@ -1,10 +1,13 @@
 export const generate3DModel = async (prompt, ollamaUrl = 'http://localhost:11434') => {
   const model = 'mistral'; // Default model
   
-  const systemPrompt = `You are a 3D geometry engine. Return only a JSON object containing "vertices" (flat array of floats [x,y,z]) and "indices" (array of integers for faces) representing the user's prompt. 
+  const systemPrompt = `You are a 3D geometry engine. Return only a JSON object containing:
+- "vertices": flat array of floats [x,y,z] representing the user's prompt.
+- "indices": array of integers for faces (triangles).
+- "color": hex color string (e.g. "#FF0000").
+- "material": string, one of "standard", "physical", or "wireframe".
+
 The geometry should be centered around the origin. 
-"vertices" should be a flat array like [x1, y1, z1, x2, y2, z2, ...]. 
-"indices" should be for triangles, like [i1, i2, i3, i4, i5, i6, ...].
 Return ONLY the JSON. No other text.`;
 
   try {
@@ -49,14 +52,22 @@ Return ONLY the JSON. No other text.`;
         0, 1, 4, // Left
         1, 2, 3, // Bottom 1
         1, 3, 4  // Bottom 2
-      ]
+      ],
+      color: "#7C3AED",
+      material: "standard"
     };
 
     if (prompt.toLowerCase().includes('plane')) {
       result = {
         vertices: [-1, 0, -1, 1, 0, -1, 1, 0, 1, -1, 0, 1],
-        indices: [0, 1, 2, 0, 2, 3]
+        indices: [0, 1, 2, 0, 2, 3],
+        color: "#3B82F6",
+        material: "standard"
       };
+    }
+
+    if (prompt.toLowerCase().includes('wireframe') || prompt.toLowerCase().includes('grid')) {
+        result.material = "wireframe";
     }
 
     return formatResult(result);
@@ -75,6 +86,8 @@ function formatResult(result) {
 
   return {
     vertices: nestedVertices,
-    indices: result.indices
+    indices: result.indices,
+    color: result.color,
+    materialType: result.material
   };
 }

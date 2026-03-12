@@ -15,15 +15,30 @@ const useStore = create((set) => ({
   ],
   selectedJointIndex: null,
   isGenerating: false,
+  exportRequested: false,
+  
+  // Material state
+  color: '#7C3AED',
+  materialType: 'standard', // 'standard', 'physical', 'wireframe'
+  metalness: 0.5,
+  roughness: 0.5,
   
   setSelectedJointIndex: (index) => set({ selectedJointIndex: index }),
   setGenerating: (isGenerating) => set({ isGenerating }),
+  setExportRequested: (exportRequested) => set({ exportRequested }),
   
-  setGeometry: ({ vertices, indices }) => set({ 
+  setColor: (color) => set({ color }),
+  setMaterialType: (materialType) => set({ materialType }),
+  setMetalness: (metalness) => set({ metalness }),
+  setRoughness: (roughness) => set({ roughness }),
+
+  setGeometry: ({ vertices, indices, color, materialType }) => set((state) => ({ 
     vertices, 
     indices, 
+    color: color || state.color,
+    materialType: materialType || state.materialType,
     selectedJointIndex: null 
-  }),
+  })),
   
   updateVertex: (index, position) => set((state) => {
     const newVertices = [...state.vertices];

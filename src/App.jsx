@@ -1,10 +1,11 @@
 import React, { useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Grid } from "@react-three/drei";
-import { Settings, Layers, Box, MousePointer2 } from "lucide-react";
+import { Settings, Layers, Box, MousePointer2, Download } from "lucide-react";
 import EditableMesh from "./EditableMesh";
 import JointManipulator from "./JointManipulator";
 import Inspector from "./Inspector";
+import Exporter from "./Exporter";
 import useStore from "./useStore";
 import { generate3DModel } from "./aiService";
 
@@ -12,7 +13,7 @@ const App = () => {
   const [isModalOpen, setModalOpen] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [keys, setKeys] = useState(() => JSON.parse(localStorage.getItem("3d_figma_keys") || "{}"));
-  const { setSelectedJointIndex, isGenerating, setGenerating, setGeometry } = useStore();
+  const { setSelectedJointIndex, isGenerating, setGenerating, setGeometry, setExportRequested } = useStore();
 
   const saveKey = (provider, value) => {
     const newKeys = { ...keys, [provider]: value };
@@ -70,16 +71,26 @@ const App = () => {
             <span className="text-sm font-medium">Generic Mesh</span>
           </div>
         </div>
+
+        <div className="flex flex-col gap-1 mt-auto">
+          <button 
+            onClick={() => setExportRequested(true)}
+            className="flex items-center justify-center gap-2 p-3 bg-white text-black rounded-xl text-sm font-bold hover:bg-gray-200 transition-all shadow-lg"
+          >
+            <Download size={16} /> Download .GLB
+          </button>
+        </div>
       </div>
 
       {/* Main Viewport */}
-      <div className="flex-1 relative" onClick={() => setSelectedJointIndex(null)}>
-        <Canvas camera={{ position: [2, 2, 2], fov: 45 }}>
+      <div className="flex-1 relative bg-black" onClick={() => setSelectedJointIndex(null)}>
+        <Canvas camera={{ position: [3, 3, 3], fov: 45 }} className="transition-opacity duration-500 ease-in-out">
           <color attach="background" args={["#0F0F0F"]} />
-          <ambientLight intensity={0.5} />
-          <pointLight position={[10, 10, 10]} intensity={1} />
-          <pointLight position={[-10, -10, -10]} intensity={0.5} />
+          <ambientLight intensity={1.5} />
+          <directionalLight position={[10, 10, 10]} intensity={1.5} castShadow />
+          <pointLight position={[-10, -10, -10]} intensity={1} color="#7C3AED" />
           
+          <Exporter />
           <EditableMesh />
           <JointManipulator />
           
@@ -88,18 +99,18 @@ const App = () => {
         </Canvas>
 
         {/* Floating Prompt Bar */}
-        <div className="absolute top-8 left-1/2 -translate-x-1/2 w-full max-w-xl px-4 z-10" onClick={(e) => e.stopPropagation()}>
+        <div className="absolute top-8 left-1/2 -translate-x-1/2 w-full max-w-xl px-4 z-10 transition-all duration-300 transform hover:scale-[1.01]" onClick={(e) => e.stopPropagation()}>
           <div className="relative group">
             <input 
               type="text" 
-              placeholder={isGenerating ? "Generating 3D mesh..." : "Describe a 3D shape... (e.g. 'A pyramid')"}
+              placeholder={isGenerating ? "Consulting the AI geometry engine..." : "What shall we create today? (e.g. 'A futuristic car')"}
               disabled={isGenerating}
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={handleKeyDown}
-              className={`w-full bg-[#1A1A1A]/80 backdrop-blur-xl border ${isGenerating ? 'border-[#7C3AED] animate-pulse' : 'border-[#333]'} p-4 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] outline-none focus:border-[#7C3AED] transition-all text-sm pr-12 text-white`}
+              className={`w-full bg-[#1A1A1A]/90 backdrop-blur-2xl border ${isGenerating ? 'border-[#7C3AED] shadow-[0_0_20px_rgba(124,58,237,0.3)] animate-pulse' : 'border-[#333] shadow-2xl'} p-5 rounded-3xl outline-none focus:border-[#7C3AED] transition-all text-sm pr-12 text-white font-medium`}
             />
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] bg-[#333] px-2 py-1 rounded-md text-gray-400 font-mono">
+            <div className={`absolute right-4 top-1/2 -translate-y-1/2 text-[10px] bg-[#333] px-2 py-1 rounded-md text-gray-400 font-mono transition-opacity duration-200 ${prompt ? 'opacity-100' : 'opacity-0'}`}>
               {isGenerating ? "..." : "⏎"}
             </div>
           </div>
