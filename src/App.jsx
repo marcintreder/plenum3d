@@ -1,11 +1,16 @@
 import React, { useState } from "react";
 import { Canvas } from "@react-three/fiber";
-import { OrbitControls, Box, Grid } from "@react-three/drei";
-import { Settings } from "lucide-react";
+import { OrbitControls, Grid } from "@react-three/drei";
+import { Settings, Layers, Box, MousePointer2 } from "lucide-react";
+import EditableMesh from "./EditableMesh";
+import JointManipulator from "./JointManipulator";
+import Inspector from "./Inspector";
+import useStore from "./useStore";
 
 const App = () => {
   const [isModalOpen, setModalOpen] = useState(false);
   const [keys, setKeys] = useState(() => JSON.parse(localStorage.getItem("3d_figma_keys") || "{}"));
+  const { setSelectedJointIndex } = useStore();
 
   const saveKey = (provider, value) => {
     const newKeys = { ...keys, [provider]: value };
@@ -16,38 +21,70 @@ const App = () => {
   return (
     <div className="flex h-screen w-screen bg-[#0F0F0F] text-white overflow-hidden font-sans">
       {/* Sidebar */}
-      <div className="w-64 bg-[#1A1A1A] border-r border-[#333] p-4 flex flex-col gap-4">
-        <h1 className="text-xl font-bold tracking-tighter text-[#7C3AED]">3D FIGMA</h1>
-        <button 
-          onClick={() => setModalOpen(true)}
-          className="flex items-center gap-2 p-2 hover:bg-[#333] rounded-lg transition-colors text-sm"
-        >
-          <Settings size={16} /> Settings
-        </button>
+      <div className="w-64 bg-[#1A1A1A] border-r border-[#333] p-4 flex flex-col gap-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-black tracking-tighter text-white">Figma<span className="text-[#7C3AED]">3D</span></h1>
+          <button 
+            onClick={() => setModalOpen(true)}
+            className="p-2 hover:bg-[#333] rounded-lg transition-colors text-gray-400 hover:text-white"
+          >
+            <Settings size={18} />
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <div className="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-2">Tools</div>
+          <button className="flex items-center gap-3 p-2 bg-[#7C3AED]/10 text-[#7C3AED] rounded-lg text-sm font-medium">
+            <MousePointer2 size={16} /> Select
+          </button>
+          <button className="flex items-center gap-3 p-2 hover:bg-[#333] rounded-lg text-sm text-gray-400">
+            <Layers size={16} /> Layers
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-1 mt-4">
+          <div className="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-2">Assets</div>
+          <div className="p-3 bg-[#0F0F0F] border border-[#333] rounded-xl flex items-center gap-3 cursor-pointer hover:border-[#7C3AED] transition-colors">
+            <div className="w-8 h-8 bg-[#7C3AED] rounded-lg flex items-center justify-center">
+               <Box size={16} color="white" />
+            </div>
+            <span className="text-sm font-medium">Generic Mesh</span>
+          </div>
+        </div>
       </div>
 
       {/* Main Viewport */}
-      <div className="flex-1 relative">
-        <Canvas camera={{ position: [5, 5, 5], fov: 50 }}>
+      <div className="flex-1 relative" onClick={() => setSelectedJointIndex(null)}>
+        <Canvas camera={{ position: [2, 2, 2], fov: 45 }}>
           <color attach="background" args={["#0F0F0F"]} />
           <ambientLight intensity={0.5} />
-          <pointLight position={[10, 10, 10]} />
-          <Box args={[1, 1, 1]}>
-            <meshStandardMaterial color="#7C3AED" />
-          </Box>
+          <pointLight position={[10, 10, 10]} intensity={1} />
+          <pointLight position={[-10, -10, -10]} intensity={0.5} />
+          
+          <EditableMesh />
+          <JointManipulator />
+          
           <Grid infiniteGrid fadeDistance={50} sectionColor="#333" cellColor="#222" />
           <OrbitControls makeDefault />
         </Canvas>
 
         {/* Floating Prompt Bar */}
-        <div className="absolute top-8 left-1/2 -translate-x-1/2 w-full max-w-xl">
-          <input 
-            type="text" 
-            placeholder="Describe a 3D object (e.g., An F1 car with carbon fiber finish)..."
-            className="w-full bg-[#1A1A1A]/80 backdrop-blur-md border border-[#333] p-4 rounded-2xl shadow-2xl outline-none focus:border-[#7C3AED] transition-all text-sm"
-          />
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-full max-w-xl px-4" onClick={(e) => e.stopPropagation()}>
+          <div className="relative group">
+            <input 
+              type="text" 
+              placeholder="Describe modifications... (e.g. 'Make it taller')"
+              className="w-full bg-[#1A1A1A]/90 backdrop-blur-xl border border-[#333] p-5 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] outline-none focus:border-[#7C3AED] transition-all text-sm pr-12"
+            />
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] bg-[#333] px-2 py-1 rounded-md text-gray-400 font-mono">
+              ⏎
+            </div>
+          </div>
         </div>
       </div>
+
+      {/* Right Sidebar: Inspector */}
+      <Inspector />
 
       {/* BYOK Modal */}
       {isModalOpen && (
