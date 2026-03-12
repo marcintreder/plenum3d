@@ -42,7 +42,7 @@ export const generateF1 = () => {
     }
   }
 
-  // Chassis
+  // Chassis - Base Structure
   addBox([0, 0, 0], [3, 0.4, 0.8]);
   // Front Wing
   addBox([1.5, -0.1, 0], [0.4, 0.1, 2]);
