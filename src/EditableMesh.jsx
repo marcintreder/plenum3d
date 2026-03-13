@@ -66,18 +66,20 @@ const EditableMesh = ({ object }) => {
 
   const handleMeshClick = (e) => {
     e.stopPropagation();
+    // Single click: Select object
     setSelectedObjectId(object.id);
   };
 
-  const handleDoubleClick = () => {
+  const handleDoubleClick = (e) => {
+    e.stopPropagation();
+    // Double click: Enter sculpt mode (go deeper)
     setSelectedObjectId(object.id);
-    setSelectedJointIndex(null);
+    setEditMode('vertex');
   };
 
   const handleTransformStart = () => setIsDragging(true);
   const handleTransformEnd = () => {
     setIsDragging(false);
-    // Save history once the user finishes moving the object
     useStore.getState().saveHistory();
   };
 
