@@ -34,19 +34,16 @@ const JointManipulator = () => {
   };
 
   return (
-    <group>
+    <group name="JointManipulatorGroup">
       {selectedObject.vertices.map((vertex, index) => {
         const isSelected = selectedJointIndex === index;
-        const vertexPos = vertex; // Assuming vertex is [x, y, z]
+        const vertexPos = new THREE.Vector3(...vertex);
         
         return (
           <group key={`${selectedObjectId}-${index}`}>
             {isSelected ? (
               <PivotControls
                 depthTest={false}
-                // Important: PivotControls expects a parent object reference, 
-                // but we're creating handles for specific vertices. 
-                // We'll use a dummy group positioned at the vertex.
                 position={vertexPos}
                 onDragStart={() => setIsDragging(true)}
                 onDrag={(matrix) => {
@@ -66,7 +63,7 @@ const JointManipulator = () => {
                 displayValues={false}
                 autoScale={false}
               >
-                <mesh onClick={(e) => e.stopPropagation()}>
+                <mesh>
                   <sphereGeometry args={[0.08, 16, 16]} />
                   <meshStandardMaterial color="#06B6D4" emissive="#06B6D4" emissiveIntensity={3} />
                 </mesh>
