@@ -65,52 +65,48 @@ const App = () => {
 
   return (
     <div className="flex h-screen w-screen bg-[#0F0F0F] text-white overflow-hidden font-sans select-none">
-      {/* Sidebar */}
+      {/* Sidebar: Simplified Editor Mode Switchers */}
       <div className="w-64 bg-[#1A1A1A] border-r border-[#333] p-4 flex flex-col gap-6">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-black tracking-tighter text-white italic">Sculpt<span className="text-[#7C3AED]">3D</span></h1>
-          <div className="flex gap-1">
+          <div className="flex gap-2">
             <button 
               onClick={undo}
               disabled={historyIndex <= 0}
-              className="p-1.5 hover:bg-[#333] rounded-lg text-gray-500 hover:text-white disabled:opacity-20"
+              className="p-2 hover:bg-[#333] rounded-lg text-gray-500 hover:text-white disabled:opacity-20"
             >
-              <Undo2 size={14} />
+              <Undo2 size={16} />
             </button>
             <button 
               onClick={redo}
               disabled={historyIndex >= history.length - 1}
-              className="p-1.5 hover:bg-[#333] rounded-lg text-gray-500 hover:text-white disabled:opacity-20"
+              className="p-2 hover:bg-[#333] rounded-lg text-gray-500 hover:text-white disabled:opacity-20"
             >
-              <Redo2 size={14} />
-            </button>
-            <button 
-              onClick={() => setModalOpen(true)}
-              className="p-1.5 hover:bg-[#333] rounded-lg transition-colors text-gray-400 hover:text-white"
-            >
-              <Settings size={14} />
+              <Redo2 size={16} />
             </button>
           </div>
         </div>
 
         <div className="flex flex-col gap-1">
           <div className="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-2">Editor Mode</div>
-          <button 
-            onClick={() => setEditMode('object')}
-            className={`flex items-center gap-3 p-2 rounded-lg text-sm font-medium transition-all ${
-              editMode === 'object' ? 'bg-[#7C3AED] text-white shadow-[0_0_15px_rgba(124,58,237,0.4)]' : 'text-gray-400 hover:bg-[#333]'
-            }`}
-          >
-            <Move size={16} /> Object Mode <span className="ml-auto text-[9px] opacity-50 font-mono">V</span>
-          </button>
-          <button 
-            onClick={() => setEditMode('vertex')}
-            className={`flex items-center gap-3 p-2 rounded-lg text-sm font-medium transition-all ${
-              editMode === 'vertex' ? 'bg-[#06B6D4] text-white shadow-[0_0_15px_rgba(6,182,212,0.4)]' : 'text-gray-400 hover:bg-[#333]'
-            }`}
-          >
-            <Scissors size={16} /> Sculpt Mode <span className="ml-auto text-[9px] opacity-50 font-mono">J</span>
-          </button>
+          <div className="grid grid-cols-2 gap-2">
+            <button 
+              onClick={() => setEditMode('object')}
+              className={`p-2 rounded-lg text-xs font-bold transition-all ${
+                editMode === 'object' ? 'bg-[#7C3AED] text-white shadow-[0_0_15px_rgba(124,58,237,0.4)]' : 'bg-[#222] text-gray-400 hover:bg-[#333]'
+              }`}
+            >
+              Object
+            </button>
+            <button 
+              onClick={() => setEditMode('vertex')}
+              className={`p-2 rounded-lg text-xs font-bold transition-all ${
+                editMode === 'vertex' ? 'bg-[#06B6D4] text-white shadow-[0_0_15px_rgba(6,182,212,0.4)]' : 'bg-[#222] text-gray-400 hover:bg-[#333]'
+              }`}
+            >
+              Sculpt
+            </button>
+          </div>
         </div>
 
         <div className="flex flex-col gap-1 mt-4">
