@@ -3,7 +3,7 @@ import { generateF1 } from './f1Model';
 
 const initialObjects = generateF1();
 
-export const useStore = create((set, get) => ({
+const useStore = create((set, get) => ({
   objects: initialObjects,
   history: [JSON.parse(JSON.stringify(initialObjects))],
   historyIndex: 0,
@@ -185,7 +185,7 @@ export const useStore = create((set, get) => ({
       selectedObjectId: id,
       selectedJointIndex: null
     });
-  }),
+  },
 
   deleteObject: (id) => {
     const { saveHistory, objects, selectedObjectId } = get();
@@ -193,8 +193,10 @@ export const useStore = create((set, get) => ({
     const newObjects = objects.filter(obj => obj.id !== id);
     set({
       objects: newObjects,
-      selectedObjectId: selectedObjectId === id ? (newObjects[0]?.id || null) : selectedObjectId,
+      selectedObjectId: selectedObjectId === id ? null : selectedObjectId,
       selectedJointIndex: null
     });
   }
 }));
+
+export default useStore;
