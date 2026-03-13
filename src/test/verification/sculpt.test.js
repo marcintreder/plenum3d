@@ -39,6 +39,7 @@ test.describe('Sculpt3D Automated Verification', () => {
     
     // 3. Ensure cube is present and interactive (Canvas has 3D elements)
     // Click outside of the UI elements to avoid event interception
+    const canvas = page.locator('canvas');
     await canvas.click({ position: { x: 400, y: 400 } });
     
     // 4. Verify no error in console
