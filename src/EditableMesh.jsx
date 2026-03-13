@@ -79,7 +79,7 @@ const EditableMesh = ({ object }) => {
       onDoubleClick={handleDoubleClick}
       onPointerMissed={() => setSelectedJointIndex(null)}
     >
-      {object.vertices && object.indices ? (
+      {flatVertices.length > 0 && flatIndices.length > 0 ? (
         <bufferGeometry ref={geomRef}>
           <bufferAttribute
             attach="attributes-position"
