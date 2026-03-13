@@ -3,11 +3,6 @@ import { generateF1 } from './f1Model';
 
 const initialObjects = generateF1();
 
-import { create } from 'zustand';
-import { generateF1 } from './f1Model';
-
-const initialObjects = generateF1();
-
 export const useStore = create((set, get) => ({
   objects: initialObjects,
   history: [JSON.parse(JSON.stringify(initialObjects))],
@@ -203,6 +198,3 @@ export const useStore = create((set, get) => ({
     });
   }
 }));
-
-
-export default useStore;
