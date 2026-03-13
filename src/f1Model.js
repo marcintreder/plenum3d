@@ -11,7 +11,6 @@ export const generateF1 = () => {
     const [w, h, d] = size;
 
     if (type === 'box') {
-      // Basic box centered at local origin
       vertices = [
         [-w/2, -h/2, -d/2], [w/2, -h/2, -d/2], [w/2, h/2, -d/2], [-w/2, h/2, -d/2],
         [-w/2, -h/2, d/2], [w/2, -h/2, d/2], [w/2, h/2, d/2], [-w/2, h/2, d/2]
@@ -24,6 +23,7 @@ export const generateF1 = () => {
       const radius = w;
       const length = h;
       
+      // Use local space: y is height (length axis), x/z is circular cross section
       vertices.push([0, -length/2, 0]); 
       vertices.push([0, length/2, 0]);  
       
@@ -40,8 +40,11 @@ export const generateF1 = () => {
         const t = b + 1;
         const bNext = 2 + (i + 1) * 2;
         const tNext = bNext + 1;
+        // Side faces
         indices.push(b, t, bNext, t, tNext, bNext);
+        // Bottom cap (fan)
         indices.push(0, bNext, b);
+        // Top cap (fan)
         indices.push(1, t, tNext);
       }
     } else if (type === 'nose') {
@@ -52,6 +55,10 @@ export const generateF1 = () => {
       ];
       indices = [0,2,1, 0,3,2, 0,4,3, 0,1,4, 1,2,3, 1,3,4];
     }
+
+    // Safety check for empty geometry
+    if (vertices.length === 0 || indices.length === 0) return;
+
 
     const rotatedVertices = vertices.map(v => {
       let [vx, vy, vz] = v;
