@@ -78,8 +78,12 @@ const useStore = create((set) => ({
   }),
 
   updateObjectTransform: (id, position, rotation, scale) => set((state) => {
+    // Grid snapping logic (0.1 units)
+    const snap = (v) => Math.round(v * 10) / 10;
+    const snappedPos = position.map(snap);
+
     const newObjects = state.objects.map(obj => 
-      obj.id === id ? { ...obj, position, rotation, scale } : obj
+      obj.id === id ? { ...obj, position: snappedPos, rotation, scale } : obj
     );
     state.saveHistory();
     return { objects: newObjects };

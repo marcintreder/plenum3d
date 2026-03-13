@@ -5,7 +5,7 @@ describe('Sculpt3D Multi-Object Store', () => {
   it('should initialize with the F1 assembly', () => {
     const state = useStore.getState();
     expect(state.objects.length).toBeGreaterThan(1);
-    expect(state.objects.some(o => o.name === 'Main Chassis')).toBe(true);
+    expect(state.objects.some(o => o.name === 'Chassis Base')).toBe(true);
   });
 
   it('should add a new primitive object', () => {

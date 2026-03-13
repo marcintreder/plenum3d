@@ -8,7 +8,12 @@ const useKeyboardShortcuts = () => {
     setEditMode, 
     editMode,
     setSelectedJointIndex,
-    setSelectedObjectId
+    setSelectedObjectId,
+    undo,
+    redo,
+    addPrimitive,
+    objects,
+    updateObject
   } = useStore();
 
   useEffect(() => {
@@ -18,18 +23,40 @@ const useKeyboardShortcuts = () => {
 
       const key = e.key.toLowerCase();
 
-      // Undo/Redo
-      if ((e.metaKey || e.ctrlKey) && key === 'z') {
-        if (e.shiftKey) {
-          useStore.getState().redo();
-        } else {
-          useStore.getState().undo();
+      // --- Meta Shortcuts ---
+      if (e.metaKey || e.ctrlKey) {
+        // Undo/Redo (Cmd-Z / Cmd-Shift-Z)
+        if (key === 'z') {
+          e.preventDefault();
+          if (e.shiftKey) redo();
+          else undo();
+          return;
         }
-        e.preventDefault();
-        return;
+
+        // Duplication (Cmd-D)
+        if (key === 'd') {
+          e.preventDefault();
+          if (selectedObjectId) {
+            const obj = objects.find(o => o.id === selectedObjectId);
+            if (obj) {
+              const newObj = JSON.parse(JSON.stringify(obj));
+              newObj.id = Math.random().toString(36).substr(2, 9);
+              newObj.name += " (Copy)";
+              newObj.position[0] += 0.5; // Offset copy
+              useStore.setState((state) => ({ 
+                objects: [...state.objects, newObj],
+                selectedObjectId: newObj.id
+              }));
+              useStore.getState().saveHistory();
+            }
+          }
+          return;
+        }
       }
 
-      // Delete object (Backspace or Delete)
+      // --- Simple Shortcuts ---
+
+      // Delete (Backspace/Delete)
       if ((key === 'backspace' || key === 'delete') && selectedObjectId) {
         deleteObject(selectedObjectId);
       }
@@ -40,19 +67,38 @@ const useKeyboardShortcuts = () => {
         setSelectedJointIndex(null);
       }
 
-      // Switch Modes
-      if (key === 'v') setEditMode('object'); // V for Move/Object mode
-      if (key === 'j') setEditMode('vertex'); // J for Joint/Vertex mode
+      // Mode Switch
+      if (key === 'v') setEditMode('object');
+      if (key === 'j') setEditMode('vertex');
 
-      // Multi-select or precision (Placeholder for future logic)
-      if (e.shiftKey) {
-        // shift logic here
+      // Layer Cycling ([ and ])
+      if (key === '[' || key === ']') {
+        const currentIndex = objects.findIndex(o => o.id === selectedObjectId);
+        let nextIndex = key === '[' ? currentIndex - 1 : currentIndex + 1;
+        if (nextIndex < 0) nextIndex = objects.length - 1;
+        if (nextIndex >= objects.length) nextIndex = 0;
+        if (objects[nextIndex]) setSelectedObjectId(objects[nextIndex].id);
+      }
+
+      // Nudge (Arrows)
+      if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(key) && selectedObjectId) {
+        e.preventDefault();
+        const obj = objects.find(o => o.id === selectedObjectId);
+        if (obj) {
+          const moveStep = e.shiftKey ? 0.5 : 0.1;
+          const newPos = [...obj.position];
+          if (key === 'arrowup') newPos[1] += moveStep;
+          if (key === 'arrowdown') newPos[1] -= moveStep;
+          if (key === 'arrowleft') newPos[0] -= moveStep;
+          if (key === 'arrowright') newPos[0] += moveStep;
+          updateObject(selectedObjectId, { position: newPos });
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedObjectId, deleteObject, setEditMode, editMode, setSelectedJointIndex, setSelectedObjectId]);
+  }, [selectedObjectId, deleteObject, setEditMode, editMode, setSelectedJointIndex, setSelectedObjectId, undo, redo, objects, updateObject]);
 };
 
 export default useKeyboardShortcuts;
