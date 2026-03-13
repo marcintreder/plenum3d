@@ -118,6 +118,8 @@ export const generateF1 = () => {
   createPart('Diffuser Center', [-1.6, -0.05, 0], [0.4, 0.1, 0.8], 'box', BLACK);
   createPart('Diffuser Fin R', [-1.6, 0.05, 0.3], [0.1, 0.2, 0.05], 'box', BLACK);
   createPart('Diffuser Fin L', [-1.6, 0.05, -0.3], [0.1, 0.2, 0.05], 'box', BLACK);
+  createPart('Main Chassis', [0, 0, 0], [2.0, 0.5, 1.0], 'box', RED);
+
 
   const wheelRadius = 0.65; // Further increased for visual impact
   const wheelWidth = 0.75;  
