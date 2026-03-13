@@ -26,8 +26,8 @@ test.describe('Sculpt3D Automated Verification', () => {
   });
 
   test('Switching Editor Modes should not crash', async ({ page }) => {
-    const objectModeBtn = page.getByText(/Object Mode/i);
-    const sculptModeBtn = page.getByText(/Sculpt Mode/i);
+    const objectModeBtn = page.locator('#object-mode-btn');
+    const sculptModeBtn = page.locator('#sculpt-mode-btn');
     
     await objectModeBtn.click();
     await expect(objectModeBtn).toHaveClass(/bg-\[#7C3AED\]/);

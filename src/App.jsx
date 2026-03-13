@@ -91,6 +91,7 @@ const App = () => {
           <div className="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-2">Editor Mode</div>
           <div className="grid grid-cols-2 gap-2">
             <button 
+              id="object-mode-btn"
               onClick={() => setEditMode('object')}
               className={`p-2 rounded-lg text-xs font-bold transition-all ${
                 editMode === 'object' ? 'bg-[#7C3AED] text-white shadow-[0_0_15px_rgba(124,58,237,0.4)]' : 'bg-[#222] text-gray-400 hover:bg-[#333]'
@@ -99,6 +100,7 @@ const App = () => {
               Object
             </button>
             <button 
+              id="sculpt-mode-btn"
               onClick={() => setEditMode('vertex')}
               className={`p-2 rounded-lg text-xs font-bold transition-all ${
                 editMode === 'vertex' ? 'bg-[#06B6D4] text-white shadow-[0_0_15px_rgba(6,182,212,0.4)]' : 'bg-[#222] text-gray-400 hover:bg-[#333]'
