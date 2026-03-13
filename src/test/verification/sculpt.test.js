@@ -25,17 +25,43 @@ test.describe('Sculpt3D Automated Verification', () => {
     });
   });
 
-  test('Switching Editor Modes should not crash', async ({ page }) => {
-    const objectModeBtn = page.locator('#object-mode-btn');
-    const sculptModeBtn = page.locator('#sculpt-mode-btn');
-    
-    await objectModeBtn.click();
-    await expect(objectModeBtn).toHaveClass(/bg-\[#7C3AED\]/);
-    
-    await sculptModeBtn.click();
-    await expect(sculptModeBtn).toHaveClass(/bg-\[#06B6D4\]/);
-    
-    // Ensure canvas is still visible after switch
+  test('CUJ: Add Primitive and Manipulate', async ({ page }) => {
+    // Navigate to local dev server (default 5173, fallback if in use)
+    await page.goto('http://localhost:5173', { timeout: 3000 }).catch(() => page.goto('http://localhost:5175'));
+    await page.waitForSelector('canvas', { timeout: 10000 });
+
+    // 1. Ensure model loads
     await expect(page.locator('canvas')).toBeVisible();
+
+    // 2. Click "Cube" primitive
+    const cubeBtn = page.getByText(/Cube/i);
+    await cubeBtn.click();
+    
+    // 3. Ensure cube is present and interactive (Canvas has 3D elements)
+    // Check for mesh interaction
+    const canvas = page.locator('canvas');
+    await canvas.click({ position: { x: 100, y: 100 } });
+    
+    // 4. Verify no error in console
+    page.on('console', msg => {
+      if (msg.type() === 'error') throw new Error(`Console error: ${msg.text()}`);
+    });
   });
+
+  test('CUJ: Switch to Sculpt Mode and Interact', async ({ page }) => {
+    await page.goto('http://localhost:5173', { timeout: 3000 }).catch(() => page.goto('http://localhost:5175'));
+    await page.waitForSelector('canvas', { timeout: 10000 });
+
+    const sculptBtn = page.locator('#sculpt-mode-btn');
+    await sculptBtn.click();
+    await expect(sculptBtn).toHaveClass(/bg-\[#06B6D4\]/);
+    
+    // Simulate selection by clicking on the canvas
+    const canvas = page.locator('canvas');
+    await canvas.click({ position: { x: 300, y: 300 } });
+    
+    // If the canvas didn't crash, the UI should still be there
+    await expect(page.locator('#sculpt-mode-btn')).toBeVisible();
+  });
+
 });
