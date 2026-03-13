@@ -93,5 +93,6 @@ const JointManipulator = () => {
       })}
     </group>
   );
+};
 
 export default JointManipulator;
