@@ -1,7 +1,14 @@
 import { create } from 'zustand';
 import { generateF1 } from './f1Model';
 
-const initialObjects = generateF1();
+// Wrap in try-catch to avoid app crash on startup if F1 generation fails
+let initialObjects = [];
+try {
+  initialObjects = generateF1();
+} catch (e) {
+  console.error("F1 generation failed, falling back to empty scene", e);
+  initialObjects = [];
+}
 
 const useStore = create((set) => ({
   objects: initialObjects,
