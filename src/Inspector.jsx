@@ -16,8 +16,9 @@ const Inspector = () => {
     saveHistory
   } = useStore();
 
-  const selectedObject = objects.find(o => o.id === selectedObjectId);
+  const selectedObject = objects.find(o => o?.id === selectedObjectId);
   const selectedJoint = selectedObject && selectedJointIndex !== null ? selectedObject.vertices[selectedJointIndex] : null;
+
 
   const handleVertexChange = (axis, value) => {
     if (!selectedObject || selectedJointIndex === null) return;
