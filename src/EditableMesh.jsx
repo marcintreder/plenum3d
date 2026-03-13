@@ -1,5 +1,6 @@
-import React, { useMemo, useRef, useEffect } from 'react';
-import { TransformControls } from '@react-three/drei';
+import React, { useRef, useMemo, useEffect, useState } from 'react';
+import { PivotControls, Sphere, Html } from '@react-three/drei';
+import * as THREE from 'three';
 import useStore from './useStore';
 
 const EditableMesh = ({ object }) => {
@@ -9,6 +10,9 @@ const EditableMesh = ({ object }) => {
   const editMode = useStore((state) => state.editMode);
   const updateObjectTransform = useStore((state) => state.updateObjectTransform);
   const setSelectedObjectId = useStore((state) => state.setSelectedObjectId);
+  const setSelectedJointIndex = useStore((state) => state.setSelectedJointIndex);
+
+  const [isDragging, setIsDragging] = useState(false);
 
   const isSelected = selectedObjectId === object.id;
 
@@ -41,66 +45,74 @@ const EditableMesh = ({ object }) => {
 
   if (!object.visible) return null;
 
+  const handleDoubleClick = () => {
+    setSelectedObjectId(object.id);
+    setSelectedJointIndex(null);
+  };
+
+  const handleTransformStart = () => setIsDragging(true);
+  const handleTransformEnd = () => {
+    setIsDragging(false);
+    // Save history once the user finishes moving the object
+    useStore.getState().saveHistory();
+  };
+
   const meshElement = (
-    <mesh 
+    <mesh
       ref={meshRef}
       position={object.position || [0, 0, 0]}
       rotation={object.rotation || [0, 0, 0]}
       scale={object.scale || [1, 1, 1]}
-      onClick={(e) => {
-        e.stopPropagation();
-        setSelectedObjectId(object.id);
-      }}
+      onDoubleClick={handleDoubleClick}
+      onPointerMissed={() => setSelectedJointIndex(null)}
     >
-      <bufferGeometry ref={geomRef}>
-        <bufferAttribute
-          attach="attributes-position"
-          count={flatVertices.length / 3}
-          array={flatVertices}
-          itemSize={3}
-        />
-        <bufferAttribute
-          attach="index"
-          count={flatIndices.length}
-          array={flatIndices}
-          itemSize={1}
-        />
-      </bufferGeometry>
+      {object.vertices && object.indices ? (
+        <bufferGeometry ref={geomRef}>
+          <bufferAttribute
+            attach="attributes-position"
+            count={flatVertices.length / 3}
+            array={flatVertices}
+            itemSize={3}
+          />
+          <bufferAttribute
+            attach="index"
+            count={flatIndices.length}
+            array={flatIndices}
+            itemSize={1}
+          />
+        </bufferGeometry>
+      ) : null}
       {Material}
     </mesh>
   );
 
+
   if (isSelected && editMode === 'object') {
     return (
-      <TransformControls
+      <PivotControls
         object={meshRef}
-        onMouseUp={() => {
-          const { position, rotation, scale } = meshRef.current;
-          updateObjectTransform(
-            object.id,
-            [position.x, position.y, position.z],
-            [rotation.x, rotation.y, rotation.z],
-            [scale.x, scale.y, scale.z]
-          );
+        onDragStart={handleTransformStart}
+        onDragEnd={handleTransformEnd}
+        onDrag={(matrix) => {
+          const position = new THREE.Vector3();
+          const q = new THREE.Quaternion();
+          const s = new THREE.Vector3();
+          matrix.decompose(position, q, s);
+          updateObjectTransform(object.id, [position.x, position.y, position.z], [0,0,0], [1,1,1]);
         }}
+        depthTest={false}
+        scale={0.75}
+        lineWidth={4}
+        fixed
+        displayValues={false}
+        autoScale={false}
       >
         {meshElement}
-      </TransformControls>
+      </PivotControls>
     );
   }
 
   return meshElement;
 };
 
-const SceneManager = () => {
-  const objects = useStore((state) => state.objects);
-  return (
-    <>
-      {objects.map((obj) => (
-        <EditableMesh key={obj.id} object={obj} />
-      ))}
-    </>
-  );
-};
-
-export default SceneManager;
+export default EditableMesh;
