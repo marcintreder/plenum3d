@@ -10,6 +10,7 @@ const Inspector = () => {
     updateObject, 
     deleteObject,
     selectedJointIndex,
+    setSelectedJointIndex,
     updateVertex,
     editMode,
     setEditMode,
@@ -18,6 +19,9 @@ const Inspector = () => {
 
   const selectedObject = objects.find(o => o?.id === selectedObjectId);
   const selectedJoint = selectedObject && selectedJointIndex !== null ? selectedObject.vertices[selectedJointIndex] : null;
+
+  console.log('Inspector Rendered. Selected Object:', selectedObject);
+
 
 
   const handleVertexChange = (axis, value) => {
