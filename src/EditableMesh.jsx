@@ -17,12 +17,13 @@ const EditableMesh = ({ object }) => {
   const isSelected = selectedObjectId === object.id;
 
   const flatVertices = useMemo(() => {
-    return new Float32Array(object.vertices.flat());
-  }, [object.vertices]);
+    return object?.vertices ? new Float32Array(object.vertices.flat()) : new Float32Array([]);
+  }, [object?.vertices]);
 
   const flatIndices = useMemo(() => {
-    return new Uint32Array(object.indices);
-  }, [object.indices]);
+    return object?.indices ? new Uint32Array(object.indices) : new Uint32Array([]);
+  }, [object?.indices]);
+
 
   useEffect(() => {
     if (geomRef.current) {
