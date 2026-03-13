@@ -22,6 +22,7 @@ const App = () => {
   const [keys, setKeys] = useState(() => JSON.parse(localStorage.getItem("3d_sculpt_keys") || "{}"));
   
   const { 
+    objects,
     setSelectedJointIndex, 
     isGenerating, 
     setGenerating, 
@@ -167,7 +168,7 @@ const App = () => {
           <pointLight position={[-10, -10, -10]} intensity={1} color="#7C3AED" />
           
           <Exporter />
-          {useStore.getState().objects.map(obj => (
+          {objects.map(obj => (
             <EditableMesh key={obj.id} object={obj} />
           ))}
           <JointManipulator />
