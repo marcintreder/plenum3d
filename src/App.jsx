@@ -158,6 +158,8 @@ const App = () => {
           camera={{ position: [5, 5, 5], fov: 45 }} 
           className="transition-opacity duration-500 ease-in-out"
           onPointerMissed={() => setSelectedJointIndex(null)}
+          gl={{ preserveDrawingBuffer: true, antialias: true }}
+          shadows
         >
           <color attach="background" args={["#0F0F0F"]} />
           <ambientLight intensity={1.5} />
@@ -165,7 +167,9 @@ const App = () => {
           <pointLight position={[-10, -10, -10]} intensity={1} color="#7C3AED" />
           
           <Exporter />
-          <EditableMesh />
+          {useStore.getState().objects.map(obj => (
+            <EditableMesh key={obj.id} object={obj} />
+          ))}
           <JointManipulator />
           
           <Grid infiniteGrid fadeDistance={50} sectionColor="#333" cellColor="#222" />
