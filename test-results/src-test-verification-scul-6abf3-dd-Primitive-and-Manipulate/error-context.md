@@ -1,0 +1,380 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - heading "Sculpt3D" [level=1] [ref=e6]
+      - generic [ref=e7]:
+        - button [ref=e8]:
+          - img [ref=e9]
+        - button [disabled] [ref=e12]:
+          - img [ref=e13]
+    - generic [ref=e16]:
+      - generic [ref=e17]: Editor Mode
+      - generic [ref=e18]:
+        - button "Object" [ref=e19]
+        - button "Sculpt" [ref=e20]
+    - generic [ref=e21]:
+      - generic [ref=e22]: Primitives
+      - generic [ref=e23]:
+        - button "Cube" [active] [ref=e24]:
+          - img [ref=e25]
+          - text: Cube
+        - button "Sphere" [ref=e27]:
+          - img [ref=e28]
+          - text: Sphere
+        - button "Cylinder" [ref=e30]:
+          - img [ref=e31]
+          - text: Cylinder
+        - button "Cone" [ref=e34]:
+          - img [ref=e35]
+          - text: Cone
+    - generic [ref=e37]:
+      - generic [ref=e38]: Developer
+      - button "View R3F Code" [ref=e39]:
+        - img [ref=e40]
+        - text: View R3F Code
+    - button "Export .GLB" [ref=e44]:
+      - img [ref=e45]
+      - text: Export .GLB
+  - generic [ref=e53]:
+    - 'textbox "AI Command: ''A vintage radio''" [ref=e54]'
+    - generic [ref=e55]: ⏎
+  - generic [ref=e56]:
+    - generic [ref=e57]:
+      - generic [ref=e58]:
+        - img [ref=e59]
+        - generic [ref=e60]: Object Settings
+      - generic [ref=e61]:
+        - button "Object Mode (V)" [ref=e62]:
+          - img [ref=e63]
+        - button "Sculpt Mode (J)" [ref=e68]:
+          - img [ref=e69]
+    - generic [ref=e75]:
+      - generic [ref=e76]:
+        - generic [ref=e77]: Scene Graph
+        - generic [ref=e78]: 37 Layers
+      - generic [ref=e79]:
+        - generic [ref=e80] [cursor=pointer]:
+          - generic [ref=e81]:
+            - button [ref=e82]:
+              - img [ref=e83]
+            - generic [ref=e86]: Chassis Base
+          - button [ref=e87]:
+            - img [ref=e88]
+        - generic [ref=e91] [cursor=pointer]:
+          - generic [ref=e92]:
+            - button [ref=e93]:
+              - img [ref=e94]
+            - generic [ref=e97]: Chassis Upper
+          - button [ref=e98]:
+            - img [ref=e99]
+        - generic [ref=e102] [cursor=pointer]:
+          - generic [ref=e103]:
+            - button [ref=e104]:
+              - img [ref=e105]
+            - generic [ref=e108]: Nose Cone
+          - button [ref=e109]:
+            - img [ref=e110]
+        - generic [ref=e113] [cursor=pointer]:
+          - generic [ref=e114]:
+            - button [ref=e115]:
+              - img [ref=e116]
+            - generic [ref=e119]: Cockpit Opening
+          - button [ref=e120]:
+            - img [ref=e121]
+        - generic [ref=e124] [cursor=pointer]:
+          - generic [ref=e125]:
+            - button [ref=e126]:
+              - img [ref=e127]
+            - generic [ref=e130]: Sidepod R
+          - button [ref=e131]:
+            - img [ref=e132]
+        - generic [ref=e135] [cursor=pointer]:
+          - generic [ref=e136]:
+            - button [ref=e137]:
+              - img [ref=e138]
+            - generic [ref=e141]: Sidepod L
+          - button [ref=e142]:
+            - img [ref=e143]
+        - generic [ref=e146] [cursor=pointer]:
+          - generic [ref=e147]:
+            - button [ref=e148]:
+              - img [ref=e149]
+            - generic [ref=e152]: Sidepod Intake R
+          - button [ref=e153]:
+            - img [ref=e154]
+        - generic [ref=e157] [cursor=pointer]:
+          - generic [ref=e158]:
+            - button [ref=e159]:
+              - img [ref=e160]
+            - generic [ref=e163]: Sidepod Intake L
+          - button [ref=e164]:
+            - img [ref=e165]
+        - generic [ref=e168] [cursor=pointer]:
+          - generic [ref=e169]:
+            - button [ref=e170]:
+              - img [ref=e171]
+            - generic [ref=e174]: Front Wing Main
+          - button [ref=e175]:
+            - img [ref=e176]
+        - generic [ref=e179] [cursor=pointer]:
+          - generic [ref=e180]:
+            - button [ref=e181]:
+              - img [ref=e182]
+            - generic [ref=e185]: Front Wing End R
+          - button [ref=e186]:
+            - img [ref=e187]
+        - generic [ref=e190] [cursor=pointer]:
+          - generic [ref=e191]:
+            - button [ref=e192]:
+              - img [ref=e193]
+            - generic [ref=e196]: Front Wing End L
+          - button [ref=e197]:
+            - img [ref=e198]
+        - generic [ref=e201] [cursor=pointer]:
+          - generic [ref=e202]:
+            - button [ref=e203]:
+              - img [ref=e204]
+            - generic [ref=e207]: Rear Wing Lower
+          - button [ref=e208]:
+            - img [ref=e209]
+        - generic [ref=e212] [cursor=pointer]:
+          - generic [ref=e213]:
+            - button [ref=e214]:
+              - img [ref=e215]
+            - generic [ref=e218]: Rear Wing Upper
+          - button [ref=e219]:
+            - img [ref=e220]
+        - generic [ref=e223] [cursor=pointer]:
+          - generic [ref=e224]:
+            - button [ref=e225]:
+              - img [ref=e226]
+            - generic [ref=e229]: Rear Wing End R
+          - button [ref=e230]:
+            - img [ref=e231]
+        - generic [ref=e234] [cursor=pointer]:
+          - generic [ref=e235]:
+            - button [ref=e236]:
+              - img [ref=e237]
+            - generic [ref=e240]: Rear Wing End L
+          - button [ref=e241]:
+            - img [ref=e242]
+        - generic [ref=e245] [cursor=pointer]:
+          - generic [ref=e246]:
+            - button [ref=e247]:
+              - img [ref=e248]
+            - generic [ref=e251]: Halo Ring
+          - button [ref=e252]:
+            - img [ref=e253]
+        - generic [ref=e256] [cursor=pointer]:
+          - generic [ref=e257]:
+            - button [ref=e258]:
+              - img [ref=e259]
+            - generic [ref=e262]: Engine Cover
+          - button [ref=e263]:
+            - img [ref=e264]
+        - generic [ref=e267] [cursor=pointer]:
+          - generic [ref=e268]:
+            - button [ref=e269]:
+              - img [ref=e270]
+            - generic [ref=e273]: Steering Wheel
+          - button [ref=e274]:
+            - img [ref=e275]
+        - generic [ref=e278] [cursor=pointer]:
+          - generic [ref=e279]:
+            - button [ref=e280]:
+              - img [ref=e281]
+            - generic [ref=e284]: Driver Seat
+          - button [ref=e285]:
+            - img [ref=e286]
+        - generic [ref=e289] [cursor=pointer]:
+          - generic [ref=e290]:
+            - button [ref=e291]:
+              - img [ref=e292]
+            - generic [ref=e295]: Cockpit Headrest
+          - button [ref=e296]:
+            - img [ref=e297]
+        - generic [ref=e300] [cursor=pointer]:
+          - generic [ref=e301]:
+            - button [ref=e302]:
+              - img [ref=e303]
+            - generic [ref=e306]: Diffuser Center
+          - button [ref=e307]:
+            - img [ref=e308]
+        - generic [ref=e311] [cursor=pointer]:
+          - generic [ref=e312]:
+            - button [ref=e313]:
+              - img [ref=e314]
+            - generic [ref=e317]: Diffuser Fin R
+          - button [ref=e318]:
+            - img [ref=e319]
+        - generic [ref=e322] [cursor=pointer]:
+          - generic [ref=e323]:
+            - button [ref=e324]:
+              - img [ref=e325]
+            - generic [ref=e328]: Diffuser Fin L
+          - button [ref=e329]:
+            - img [ref=e330]
+        - generic [ref=e333] [cursor=pointer]:
+          - generic [ref=e334]:
+            - button [ref=e335]:
+              - img [ref=e336]
+            - generic [ref=e339]: Main Chassis
+          - button [ref=e340]:
+            - img [ref=e341]
+        - generic [ref=e344] [cursor=pointer]:
+          - generic [ref=e345]:
+            - button [ref=e346]:
+              - img [ref=e347]
+            - generic [ref=e350]: Wheel FR Tire
+          - button [ref=e351]:
+            - img [ref=e352]
+        - generic [ref=e355] [cursor=pointer]:
+          - generic [ref=e356]:
+            - button [ref=e357]:
+              - img [ref=e358]
+            - generic [ref=e361]: Wheel FR Rim
+          - button [ref=e362]:
+            - img [ref=e363]
+        - generic [ref=e366] [cursor=pointer]:
+          - generic [ref=e367]:
+            - button [ref=e368]:
+              - img [ref=e369]
+            - generic [ref=e372]: Wheel FL Tire
+          - button [ref=e373]:
+            - img [ref=e374]
+        - generic [ref=e377] [cursor=pointer]:
+          - generic [ref=e378]:
+            - button [ref=e379]:
+              - img [ref=e380]
+            - generic [ref=e383]: Wheel FL Rim
+          - button [ref=e384]:
+            - img [ref=e385]
+        - generic [ref=e388] [cursor=pointer]:
+          - generic [ref=e389]:
+            - button [ref=e390]:
+              - img [ref=e391]
+            - generic [ref=e394]: Wheel RR Tire
+          - button [ref=e395]:
+            - img [ref=e396]
+        - generic [ref=e399] [cursor=pointer]:
+          - generic [ref=e400]:
+            - button [ref=e401]:
+              - img [ref=e402]
+            - generic [ref=e405]: Wheel RR Rim
+          - button [ref=e406]:
+            - img [ref=e407]
+        - generic [ref=e410] [cursor=pointer]:
+          - generic [ref=e411]:
+            - button [ref=e412]:
+              - img [ref=e413]
+            - generic [ref=e416]: Wheel RL Tire
+          - button [ref=e417]:
+            - img [ref=e418]
+        - generic [ref=e421] [cursor=pointer]:
+          - generic [ref=e422]:
+            - button [ref=e423]:
+              - img [ref=e424]
+            - generic [ref=e427]: Wheel RL Rim
+          - button [ref=e428]:
+            - img [ref=e429]
+        - generic [ref=e432] [cursor=pointer]:
+          - generic [ref=e433]:
+            - button [ref=e434]:
+              - img [ref=e435]
+            - generic [ref=e438]: Suspension Front Arm R
+          - button [ref=e439]:
+            - img [ref=e440]
+        - generic [ref=e443] [cursor=pointer]:
+          - generic [ref=e444]:
+            - button [ref=e445]:
+              - img [ref=e446]
+            - generic [ref=e449]: Suspension Front Arm L
+          - button [ref=e450]:
+            - img [ref=e451]
+        - generic [ref=e454] [cursor=pointer]:
+          - generic [ref=e455]:
+            - button [ref=e456]:
+              - img [ref=e457]
+            - generic [ref=e460]: Suspension Rear Arm R
+          - button [ref=e461]:
+            - img [ref=e462]
+        - generic [ref=e465] [cursor=pointer]:
+          - generic [ref=e466]:
+            - button [ref=e467]:
+              - img [ref=e468]
+            - generic [ref=e471]: Suspension Rear Arm L
+          - button [ref=e472]:
+            - img [ref=e473]
+        - generic [ref=e476] [cursor=pointer]:
+          - generic [ref=e477]:
+            - button [ref=e478]:
+              - img [ref=e479]
+            - generic [ref=e482]: Cube 37
+          - button [ref=e483]:
+            - img [ref=e484]
+    - generic [ref=e487]:
+      - generic [ref=e488]:
+        - generic [ref=e489]:
+          - text: Identification
+          - textbox [ref=e490]: Cube 37
+        - generic [ref=e491]:
+          - generic [ref=e492]:
+            - text: position
+            - generic [ref=e493]:
+              - generic [ref=e494]:
+                - generic [ref=e495]: X
+                - spinbutton [ref=e496]: "0.00"
+              - generic [ref=e497]:
+                - generic [ref=e498]: "Y"
+                - spinbutton [ref=e499]: "0.00"
+              - generic [ref=e500]:
+                - generic [ref=e501]: Z
+                - spinbutton [ref=e502]: "0.00"
+          - generic [ref=e503]:
+            - text: rotation
+            - generic [ref=e504]:
+              - generic [ref=e505]:
+                - generic [ref=e506]: X
+                - spinbutton [ref=e507]: "0.00"
+              - generic [ref=e508]:
+                - generic [ref=e509]: "Y"
+                - spinbutton [ref=e510]: "0.00"
+              - generic [ref=e511]:
+                - generic [ref=e512]: Z
+                - spinbutton [ref=e513]: "0.00"
+          - generic [ref=e514]:
+            - text: scale
+            - generic [ref=e515]:
+              - generic [ref=e516]:
+                - generic [ref=e517]: X
+                - spinbutton [ref=e518]: "1.00"
+              - generic [ref=e519]:
+                - generic [ref=e520]: "Y"
+                - spinbutton [ref=e521]: "1.00"
+              - generic [ref=e522]:
+                - generic [ref=e523]: Z
+                - spinbutton [ref=e524]: "1.00"
+        - generic [ref=e525]:
+          - generic [ref=e526]:
+            - text: Appearance
+            - generic [ref=e527]:
+              - textbox [ref=e528] [cursor=pointer]: "#7c3aed"
+              - generic [ref=e529]: "#7C3AED"
+          - generic [ref=e530]:
+            - text: Material
+            - combobox [ref=e531] [cursor=pointer]:
+              - option "Standard" [selected]
+              - option "Physical"
+              - option "Wireframe"
+      - generic [ref=e532]:
+        - generic [ref=e533]:
+          - img [ref=e534]
+          - text: Sculpt Tool
+        - paragraph [ref=e537]:
+          - text: Switch to Sculpt Mode and click
+          - text: any vertex handle in the viewport
+          - text: to begin fine-tuning.
+```
