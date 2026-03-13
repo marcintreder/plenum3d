@@ -28,6 +28,8 @@ const JointManipulator = () => {
     const s = new THREE.Vector3();
     matrix.decompose(position, q, s);
     
+    // Crucial: The pivot controls are local to the object.
+    // Ensure we are translating the vertex relative to the object's original position.
     updateVertex(selectedObjectId, selectedJointIndex, [position.x, position.y, position.z]);
   };
 
@@ -35,15 +37,25 @@ const JointManipulator = () => {
     <group>
       {selectedObject.vertices.map((vertex, index) => {
         const isSelected = selectedJointIndex === index;
+        const vertexPos = vertex; // Assuming vertex is [x, y, z]
         
         return (
           <group key={`${selectedObjectId}-${index}`}>
             {isSelected ? (
               <PivotControls
                 depthTest={false}
-                anchor={vertex}
+                // Important: PivotControls expects a parent object reference, 
+                // but we're creating handles for specific vertices. 
+                // We'll use a dummy group positioned at the vertex.
+                position={vertexPos}
                 onDragStart={() => setIsDragging(true)}
-                onDrag={handleDrag}
+                onDrag={(matrix) => {
+                  const pos = new THREE.Vector3();
+                  const q = new THREE.Quaternion();
+                  const s = new THREE.Vector3();
+                  matrix.decompose(pos, q, s);
+                  updateVertex(selectedObjectId, index, [pos.x, pos.y, pos.z]);
+                }}
                 onDragEnd={() => {
                   setIsDragging(false);
                   saveHistory();
@@ -51,40 +63,35 @@ const JointManipulator = () => {
                 scale={0.8}
                 lineWidth={4}
                 fixed
-                disableAxes={false}
                 displayValues={false}
                 autoScale={false}
               >
-                <Sphere
-                  args={[0.08, 16, 16]}
-                  position={vertex}
-                  onClick={(e) => e.stopPropagation()}
-                >
+                <mesh onClick={(e) => e.stopPropagation()}>
+                  <sphereGeometry args={[0.08, 16, 16]} />
                   <meshStandardMaterial color="#06B6D4" emissive="#06B6D4" emissiveIntensity={3} />
-                </Sphere>
+                </mesh>
               </PivotControls>
             ) : (
-              <Sphere
-                args={[0.06, 12, 12]}
-                position={vertex}
+              <mesh
+                position={vertexPos}
                 onClick={(e) => {
                   e.stopPropagation();
                   setSelectedJointIndex(index);
                 }}
               >
+                <sphereGeometry args={[0.06, 12, 12]} />
                 <meshStandardMaterial 
                   color="#ffffff" 
                   opacity={0.6} 
                   transparent 
-                  depthTest={!isDragging} // Make them invisible while dragging for clarity
+                  depthTest={!isDragging}
                 />
-              </Sphere>
+              </mesh>
             )}
           </group>
         );
       })}
     </group>
   );
-};
 
 export default JointManipulator;
