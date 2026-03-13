@@ -67,7 +67,7 @@ const Inspector = () => {
       </div>
 
       {/* Layer List */}
-      <div className="flex-[0.4] flex flex-col border-b border-[#333]">
+      <div className="flex-[0.4] flex flex-col border-b border-[#333] min-h-[150px] max-h-[300px]">
         <div className="px-4 py-2 bg-[#1A1A1A] flex items-center justify-between border-b border-[#333]">
           <span className="text-[9px] uppercase tracking-tighter text-gray-500 font-bold">Scene Graph</span>
           <span className="text-[9px] text-gray-700 font-mono">{objects.length} Layers</span>
