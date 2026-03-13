@@ -134,6 +134,7 @@ const App = () => {
         <div className="flex flex-col gap-1 mt-4">
           <div className="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-2">Developer</div>
           <button 
+            id="view-code-btn"
             onClick={() => setCodeViewOpen(true)}
             className="flex items-center gap-3 p-2 hover:bg-[#333] rounded-lg text-sm text-gray-400 hover:text-white transition-all"
           >

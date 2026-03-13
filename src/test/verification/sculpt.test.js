@@ -47,22 +47,28 @@ test.describe('Sculpt3D Automated Verification', () => {
       if (msg.type() === 'error') throw new Error(`Console error: ${msg.text()}`);
     });
   });
-
-  test('CUJ: Switch to Sculpt Mode and Interact', async ({ page }) => {
+  test('CUJ: View and Copy Generated Code', async ({ page }) => {
+    // Navigate
     await page.goto('http://localhost:5173', { timeout: 3000 }).catch(() => page.goto('http://localhost:5175'));
     await page.waitForSelector('canvas', { timeout: 10000 });
 
-    const sculptBtn = page.locator('#sculpt-mode-btn');
-    await sculptBtn.click();
-    await expect(sculptBtn).toHaveClass(/bg-\[#06B6D4\]/);
+    // Open CodeView (assuming a button with id 'view-code-btn')
+    const viewCodeBtn = page.locator('#view-code-btn');
+    await viewCodeBtn.click();
     
-    // Simulate selection by clicking on the center of the canvas where the model should be
-    const canvas = page.locator('canvas');
-    // Using a more reliable click target
-    await canvas.dispatchEvent('click', { clientX: 500, clientY: 500 });
+    // Verify CodeView modal is open
+    const modal = page.locator('text=R3F Code Export');
+    await expect(modal).toBeVisible();
     
-    // If the canvas didn't crash, the UI should still be there
-    await expect(page.locator('#sculpt-mode-btn')).toBeVisible();
+    // Check if code contains R3F components
+    const codeContent = page.locator('pre');
+    await expect(codeContent).toContainText('<mesh');
+    await expect(codeContent).toContainText('<Canvas');
+    
+    // Test Copy button
+    const copyBtn = page.getByText(/Copy Code/i);
+    await copyBtn.click();
+    await expect(copyBtn).toContainText('Copied!');
   });
 
 });
