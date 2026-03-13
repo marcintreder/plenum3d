@@ -4,87 +4,143 @@
 export const generateF1 = () => {
   const parts = [];
 
-  function createPart(name, pos, size, type = 'box', color = '#7C3AED') {
+  function createPart(name, pos, size, type = 'box', color = '#7C3AED', rotation = [0, 0, 0]) {
     let vertices = [];
     let indices = [];
     const [x, y, z] = pos;
     const [w, h, d] = size;
 
     if (type === 'box') {
+      // Basic box centered at local origin
       vertices = [
-        [x-w/2, y-h/2, z-d/2], [x+w/2, y-h/2, z-d/2], [x+w/2, y+h/2, z-d/2], [x-w/2, y+h/2, z-d/2],
-        [x-w/2, y-h/2, z+d/2], [x+w/2, y-h/2, z+d/2], [x+w/2, y+h/2, z+d/2], [x-w/2, y+h/2, z+d/2]
+        [-w/2, -h/2, -d/2], [w/2, -h/2, -d/2], [w/2, h/2, -d/2], [-w/2, h/2, -d/2],
+        [-w/2, -h/2, d/2], [w/2, -h/2, d/2], [w/2, h/2, d/2], [-w/2, h/2, d/2]
       ];
       indices = [
         0,2,1, 0,3,2, 4,5,6, 4,6,7, 0,1,5, 0,5,4, 2,3,7, 2,7,6, 0,4,7, 0,7,3, 1,2,6, 1,6,5
       ];
     } else if (type === 'cylinder') {
-      // Cylinder aligned with Z-axis (for wheels)
       const segments = 16;
-      const radius = w; // Use w as radius
-      const length = h; // Use h as length (along Z)
+      const radius = w;
+      const length = h;
+      
+      vertices.push([0, -length/2, 0]); 
+      vertices.push([0, length/2, 0]);  
       
       for (let i = 0; i <= segments; i++) {
         const theta = (i / segments) * Math.PI * 2;
         const vx = Math.cos(theta) * radius;
-        const vy = Math.sin(theta) * radius;
-        vertices.push([x + vx, y + vy, z - length/2]); // front cap
-        vertices.push([x + vx, y + vy, z + length/2]); // back cap
+        const vz = Math.sin(theta) * radius;
+        vertices.push([vx, -length/2, vz]); 
+        vertices.push([vx, length/2, vz]);  
       }
+      
       for (let i = 0; i < segments; i++) {
-        const b1 = i * 2;
-        const t1 = b1 + 1;
-        const b2 = (i + 1) * 2;
-        const t2 = b2 + 1;
-        indices.push(b1, t1, b2, t1, t2, b2);
+        const b = 2 + i * 2;
+        const t = b + 1;
+        const bNext = 2 + (i + 1) * 2;
+        const tNext = bNext + 1;
+        indices.push(b, t, bNext, t, tNext, bNext);
+        indices.push(0, bNext, b);
+        indices.push(1, t, tNext);
       }
     } else if (type === 'nose') {
       vertices = [
-        [x+w/2, y, z], // Tip (front)
-        [x-w/2, y-h/2, z-d/2], [x-w/2, y-h/2, z+d/2], 
-        [x-w/2, y+h/2, z+d/2], [x-w/2, y+h/2, z-d/2]
+        [w/2, 0, 0], 
+        [-w/2, -h/2, -d/2], [-w/2, -h/2, d/2], 
+        [-w/2, h/2, d/2], [-w/2, h/2, -d/2]
       ];
       indices = [0,2,1, 0,3,2, 0,4,3, 0,1,4, 1,2,3, 1,3,4];
     }
 
+    const rotatedVertices = vertices.map(v => {
+      let [vx, vy, vz] = v;
+      if (rotation[0] !== 0) { 
+        const ty = vy, tz = vz;
+        vy = ty * Math.cos(rotation[0]) - tz * Math.sin(rotation[0]);
+        vz = ty * Math.sin(rotation[0]) + tz * Math.cos(rotation[0]);
+      }
+      if (rotation[1] !== 0) { 
+        const tx = vx, tz = vz;
+        vx = tx * Math.cos(rotation[1]) + tz * Math.sin(rotation[1]);
+        vz = -tx * Math.sin(rotation[1]) + tz * Math.cos(rotation[1]);
+      }
+      if (rotation[2] !== 0) { 
+        const tx = vx, ty = vy;
+        vx = tx * Math.cos(rotation[2]) - ty * Math.sin(rotation[2]);
+        vy = tx * Math.sin(rotation[2]) + ty * Math.cos(rotation[2]);
+      }
+      return [vx + pos[0], vy + pos[1], vz + pos[2]];
+    });
+
     parts.push({
       id: Math.random().toString(36).substr(2, 9),
       name,
-      vertices,
+      vertices: rotatedVertices,
       indices,
       color,
       materialType: 'physical',
       metalness: 0.8,
       roughness: 0.2,
       visible: true,
-      position: [0, 0, 0], // Store-level transform
+      position: [0, 0, 0], 
       rotation: [0, 0, 0],
       scale: [1, 1, 1]
     });
   }
 
-  // 1. Chassis
-  createPart('Main Chassis', [0, 0, 0], [1.8, 0.4, 0.6], 'box', '#CC0000');
-  
-  // 2. Nose
-  createPart('Nose Cone', [1.4, -0.05, 0], [1.0, 0.3, 0.4], 'nose', '#CC0000');
-  
-  // 3. Wings
-  createPart('Front Wing', [1.8, -0.15, 0], [0.2, 0.05, 2.0], 'box', '#222');
-  createPart('Rear Wing Main', [-1.3, 0.4, 0], [0.2, 0.05, 1.2], 'box', '#CC0000');
-  createPart('Rear Wing Flap', [-1.3, 0.3, 0], [0.2, 0.05, 1.2], 'box', '#222');
+  const RED = '#E02424';
+  const BLACK = '#111111';
+  const SILVER = '#9CA3AF';
 
-  // 4. Sidepods
-  createPart('Sidepod R', [0, 0, 0.4], [1.2, 0.35, 0.25], 'box', '#CC0000');
-  createPart('Sidepod L', [0, 0, -0.4], [1.2, 0.35, 0.25], 'box', '#CC0000');
+  // --- ASSEMBLY ---
+  
+  createPart('Chassis Base', [0, -0.05, 0], [2.0, 0.2, 0.7], 'box', RED);
+  createPart('Chassis Upper', [-0.2, 0.15, 0], [1.4, 0.25, 0.5], 'box', RED);
+  createPart('Nose Cone', [1.5, 0, 0], [1.2, 0.25, 0.35], 'nose', RED);
+  createPart('Cockpit Opening', [0.3, 0.25, 0], [0.6, 0.1, 0.4], 'box', BLACK);
+  createPart('Sidepod R', [0.2, 0.05, 0.45], [1.2, 0.3, 0.3], 'box', RED);
+  createPart('Sidepod L', [0.2, 0.05, -0.45], [1.2, 0.3, 0.3], 'box', RED);
+  createPart('Sidepod Intake R', [0.7, 0.1, 0.45], [0.1, 0.2, 0.25], 'box', BLACK);
+  createPart('Sidepod Intake L', [0.7, 0.1, -0.45], [0.1, 0.2, 0.25], 'box', BLACK);
+  createPart('Front Wing Main', [1.8, -0.12, 0], [0.2, 0.04, 2.2], 'box', BLACK);
+  createPart('Front Wing End R', [1.8, -0.05, 1.1], [0.3, 0.2, 0.04], 'box', RED);
+  createPart('Front Wing End L', [1.8, -0.05, -1.1], [0.3, 0.2, 0.04], 'box', RED);
+  createPart('Rear Wing Lower', [-1.4, 0.3, 0], [0.2, 0.04, 1.2], 'box', BLACK);
+  createPart('Rear Wing Upper', [-1.4, 0.45, 0], [0.15, 0.04, 1.2], 'box', RED);
+  createPart('Rear Wing End R', [-1.4, 0.35, 0.6], [0.4, 0.5, 0.04], 'box', RED);
+  createPart('Rear Wing End L', [-1.4, 0.35, -0.6], [0.4, 0.5, 0.04], 'box', RED);
+  createPart('Halo Ring', [0.5, 0.35, 0], [0.4, 0.05, 0.4], 'box', BLACK);
+  createPart('Engine Cover', [-0.7, 0.3, 0], [1.0, 0.4, 0.2], 'box', RED);
+  createPart('Steering Wheel', [0.3, 0.35, 0], [0.1, 0.1, 0.1], 'box', BLACK);
+  createPart('Driver Seat', [0.1, 0.2, 0], [0.4, 0.1, 0.3], 'box', BLACK);
+  createPart('Cockpit Headrest', [0.1, 0.35, 0], [0.2, 0.1, 0.2], 'box', BLACK);
+  createPart('Diffuser Center', [-1.6, -0.05, 0], [0.4, 0.1, 0.8], 'box', BLACK);
+  createPart('Diffuser Fin R', [-1.6, 0.05, 0.3], [0.1, 0.2, 0.05], 'box', BLACK);
+  createPart('Diffuser Fin L', [-1.6, 0.05, -0.3], [0.1, 0.2, 0.05], 'box', BLACK);
 
-  // 5. Wheels
-  const wheelRadius = 0.35;
-  const wheelWidth = 0.4;
-  createPart('Wheel FR', [1.0, -0.1, 0.7], [wheelRadius, wheelWidth, wheelRadius], 'cylinder', '#111');
-  createPart('Wheel FL', [1.0, -0.1, -0.7], [wheelRadius, wheelWidth, wheelRadius], 'cylinder', '#111');
-  createPart('Wheel RR', [-1.0, -0.1, 0.8], [wheelRadius + 0.05, wheelWidth + 0.1, wheelRadius + 0.05], 'cylinder', '#111');
-  createPart('Wheel RL', [-1.0, -0.1, -0.8], [wheelRadius + 0.05, wheelWidth + 0.1, wheelRadius + 0.05], 'cylinder', '#111');
+  const wheelRadius = 0.65; // Further increased for visual impact
+  const wheelWidth = 0.75;  
+  const W_ROT = [Math.PI / 2, 0, 0]; 
+
+  function createDetailedWheel(name, pos) {
+    // Tire - Pitch Black
+    createPart(name + ' Tire', pos, [wheelRadius, wheelWidth, wheelRadius], 'cylinder', '#050505', W_ROT);
+    // Rim - High Contrast Silver, more detailed shape
+    createPart(name + ' Rim', pos, [wheelRadius * 0.75, wheelWidth + 0.15, wheelRadius * 0.75], 'cylinder', '#E5E7EB', W_ROT);
+  }
+  
+  createDetailedWheel('Wheel FR', [1.2, 0.2, 1.0]); 
+  createDetailedWheel('Wheel FL', [1.2, 0.2, -1.0]);
+  createDetailedWheel('Wheel RR', [-1.1, 0.2, 1.1]);
+  createDetailedWheel('Wheel RL', [-1.1, 0.2, -1.1]);
+
+
+
+  createPart('Suspension Front Arm R', [1.1, -0.05, 0.4], [0.05, 0.05, 0.5], 'box', SILVER);
+  createPart('Suspension Front Arm L', [1.1, -0.05, -0.4], [0.05, 0.05, 0.5], 'box', SILVER);
+  createPart('Suspension Rear Arm R', [-1.0, -0.05, 0.45], [0.05, 0.05, 0.5], 'box', SILVER);
+  createPart('Suspension Rear Arm L', [-1.0, -0.05, -0.45], [0.05, 0.05, 0.5], 'box', SILVER);
 
   return parts;
 };
