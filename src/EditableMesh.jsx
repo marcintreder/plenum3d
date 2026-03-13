@@ -17,11 +17,23 @@ const EditableMesh = ({ object }) => {
   const isSelected = selectedObjectId === object.id;
 
   const flatVertices = useMemo(() => {
-    return object?.vertices ? new Float32Array(object.vertices.flat()) : new Float32Array([]);
+    if (!object?.vertices || object.vertices.length === 0) return new Float32Array([]);
+    try {
+      return new Float32Array(object.vertices.flat());
+    } catch (e) {
+      console.error("Flat vertices error", e);
+      return new Float32Array([]);
+    }
   }, [object?.vertices]);
 
   const flatIndices = useMemo(() => {
-    return object?.indices ? new Uint32Array(object.indices) : new Uint32Array([]);
+    if (!object?.indices || object.indices.length === 0) return new Uint32Array([]);
+    try {
+      return new Uint32Array(object.indices);
+    } catch (e) {
+      console.error("Flat indices error", e);
+      return new Uint32Array([]);
+    }
   }, [object?.indices]);
 
 
