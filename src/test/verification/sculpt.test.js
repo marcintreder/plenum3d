@@ -57,7 +57,7 @@ test.describe('Sculpt3D Automated Verification', () => {
     await viewCodeBtn.click();
     
     // Verify CodeView modal is open
-    const modal = page.locator('text=R3F Code Export');
+    const modal = page.locator('h2', { hasText: 'R3F Code Export' });
     await expect(modal).toBeVisible();
     
     // Check if code contains R3F components
