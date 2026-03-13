@@ -58,6 +58,11 @@ const EditableMesh = ({ object }) => {
 
   if (!object.visible) return null;
 
+  const handleMeshClick = (e) => {
+    e.stopPropagation();
+    setSelectedObjectId(object.id);
+  };
+
   const handleDoubleClick = () => {
     setSelectedObjectId(object.id);
     setSelectedJointIndex(null);
@@ -76,6 +81,7 @@ const EditableMesh = ({ object }) => {
       position={object.position || [0, 0, 0]}
       rotation={object.rotation || [0, 0, 0]}
       scale={object.scale || [1, 1, 1]}
+      onClick={handleMeshClick}
       onDoubleClick={handleDoubleClick}
       onPointerMissed={() => setSelectedJointIndex(null)}
     >
