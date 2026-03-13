@@ -47,10 +47,12 @@ const JointManipulator = () => {
                 position={vertexPos}
                 onDragStart={() => setIsDragging(true)}
                 onDrag={(matrix) => {
+                  const localMatrix = new THREE.Matrix4();
+                  localMatrix.copy(selectedObject.meshRef?.current?.matrixWorld || new THREE.Matrix4()).invert().multiply(matrix);
                   const pos = new THREE.Vector3();
                   const q = new THREE.Quaternion();
                   const s = new THREE.Vector3();
-                  matrix.decompose(pos, q, s);
+                  localMatrix.decompose(pos, q, s);
                   updateVertex(selectedObjectId, index, [pos.x, pos.y, pos.z]);
                 }}
                 onDragEnd={() => {

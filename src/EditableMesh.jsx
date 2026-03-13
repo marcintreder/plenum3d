@@ -5,6 +5,12 @@ import useStore from './useStore';
 
 const EditableMesh = ({ object }) => {
   const meshRef = useRef();
+  // Pass ref to object or store
+  useEffect(() => {
+    object.meshRef = meshRef;
+    return () => { object.meshRef = null; };
+  }, [object]);
+
   const geomRef = useRef();
   const selectedObjectId = useStore((state) => state.selectedObjectId);
   const editMode = useStore((state) => state.editMode);
