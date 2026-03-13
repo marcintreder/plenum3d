@@ -175,8 +175,7 @@ const Inspector = () => {
               </div>
             </section>
 
-            {/* Sculpt Section - Persistent but highlighted in vertex mode */}
-            <section className={`space-y-4 pt-4 border-t border-[#333] transition-opacity ${editMode === 'vertex' ? 'opacity-100' : 'opacity-40'}`}>
+              <div className="space-y-4 pt-4 border-t border-[#333]">
               <div className="text-[10px] uppercase tracking-widest text-[#06B6D4] font-black flex items-center gap-2">
                 <Crosshair size={12} /> {editMode === 'vertex' ? 'Active Sculpting' : 'Sculpt Tool'}
               </div>
@@ -228,7 +227,7 @@ const Inspector = () => {
                   </p>
                 </div>
               )}
-            </section>
+            </div>
           </>
         ) : (
           <div className="h-full flex flex-col items-center justify-center text-gray-700 text-center p-8 opacity-50">
