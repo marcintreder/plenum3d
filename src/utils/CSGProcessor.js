@@ -2,8 +2,12 @@ import * as THREE from 'three';
 import { SUBTRACTION, ADDITION, INTERSECTION, Brush, Evaluator } from 'three-bvh-csg';
 
 export const performCSG = (a, b, operation) => {
-  const brushA = new Brush(new THREE.Mesh(a.geometry, a.material));
-  const brushB = new Brush(new THREE.Mesh(b.geometry, b.material));
+  // Ensure geometries are computed
+  a.geometry.computeVertexNormals();
+  b.geometry.computeVertexNormals();
+  
+  const brushA = new Brush(a.geometry, a.material);
+  const brushB = new Brush(b.geometry, b.material);
   
   const evaluator = new Evaluator();
   
