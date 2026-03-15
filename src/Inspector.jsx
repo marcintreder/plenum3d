@@ -1,6 +1,7 @@
 import React from 'react';
-import { Layers, Eye, EyeOff, Trash2, Crosshair, ChevronRight, Move, Scissors, Sliders } from 'lucide-react';
+import { Layers, Trash2, Crosshair, Sliders } from 'lucide-react';
 import useStore from './useStore';
+import TexturePanel from './components/TexturePanel';
 
 const Inspector = () => {
   const { 
@@ -18,15 +19,11 @@ const Inspector = () => {
   const selectedObject = objects.find(o => o?.id === selectedObjectId);
   const selectedJoint = selectedObject && selectedJointIndex !== null ? selectedObject.vertices[selectedJointIndex] : null;
 
-  console.log('Inspector: Rendered. SelectedObject:', selectedObject);
-
   const handleVertexChange = (axis, value) => {
     if (!selectedObject || selectedJointIndex === null) return;
     const newPos = [...selectedObject.vertices[selectedJointIndex]];
     newPos[axis] = parseFloat(value) || 0;
     updateVertex(selectedObject.id, selectedJointIndex, newPos);
-    // Note: We don't save history on every keypress for performance, 
-    // but the user can use the gizmo for history or we could add a blur event.
   };
 
   const handleTransformChange = (type, axis, value) => {
@@ -38,75 +35,18 @@ const Inspector = () => {
 
   return (
     <div className="w-80 bg-[#1A1A1A] border-l border-[#333] flex flex-col overflow-hidden">
-      {/* Tool Header */}
       <div className="p-4 border-b border-[#333] bg-[#151515] flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Sliders size={14} className="text-[#7C3AED]" />
           <span className="text-[10px] uppercase tracking-widest text-white font-black">Object Settings</span>
         </div>
       </div>
-
-      {/* Layer List */}
-      <div className="flex-[0.4] flex flex-col border-b border-[#333] min-h-[150px] max-h-[300px]">
-        <div className="px-4 py-2 bg-[#1A1A1A] flex items-center justify-between border-b border-[#333]">
-          <span className="text-[9px] uppercase tracking-tighter text-gray-500 font-bold">Scene Graph</span>
-          <span className="text-[9px] text-gray-700 font-mono">{objects.length} Layers</span>
-        </div>
-        <div className="flex-1 overflow-y-auto p-2 space-y-1 bg-[#121212]">
-          {objects.map(obj => (
-            <div 
-              key={obj.id}
-              onClick={() => setSelectedObjectId(obj.id)}
-              className={`group flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all ${
-                selectedObjectId === obj.id ? 'bg-[#7C3AED]/20 border border-[#7C3AED]/30' : 'hover:bg-[#222] border border-transparent'
-              }`}
-            >
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    updateObject(obj.id, { visible: !obj.visible });
-                  }}
-                  className="text-gray-600 hover:text-white flex-shrink-0"
-                >
-                  {obj.visible ? <Eye size={12} /> : <EyeOff size={12} />}
-                </button>
-                <span className={`text-[11px] font-medium truncate ${selectedObjectId === obj.id ? 'text-white' : 'text-gray-500'}`}>
-                  {obj.name}
-                </span>
-              </div>
-              <button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  deleteObject(obj.id);
-                }}
-                className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-500 transition-opacity flex-shrink-0"
-              >
-                <Trash2 size={12} />
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Properties Inspector */}
       <div className="flex-1 p-4 overflow-y-auto space-y-6 select-text">
         {selectedObject ? (
           <>
             <section className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-[9px] text-gray-500 uppercase font-bold tracking-widest">Identification</label>
-                <input 
-                  type="text"
-                  value={selectedObject.name}
-                  onChange={(e) => updateObject(selectedObject.id, { name: e.target.value })}
-                  onBlur={() => saveHistory()}
-                  className="w-full bg-[#0F0F0F] border border-[#333] p-2 rounded-lg text-xs outline-none focus:border-[#7C3AED] transition-colors"
-                />
-              </div>
-
-              {/* Transform Inputs */}
-              <div className="space-y-3 pt-2">
+               {/* Properties */}
+               <div className="space-y-3 pt-2">
                 {['position', 'rotation', 'scale'].map((type) => (
                   <div key={type} className="space-y-1.5">
                     <label className="text-[9px] text-gray-500 uppercase font-bold">{type}</label>
@@ -128,103 +68,16 @@ const Inspector = () => {
                   </div>
                 ))}
               </div>
-
-              <div className="grid grid-cols-2 gap-4 pt-2">
-                <div className="space-y-2">
-                  <label className="text-[9px] text-gray-500 uppercase font-bold">Appearance</label>
-                  <div className="flex items-center gap-2 bg-[#0F0F0F] border border-[#333] p-1.5 rounded-lg">
-                    <input 
-                      type="color" 
-                      value={selectedObject.color}
-                      onChange={(e) => updateObject(selectedObject.id, { color: e.target.value })}
-                      onBlur={() => saveHistory()}
-                      className="w-5 h-5 bg-transparent border-none cursor-pointer rounded"
-                    />
-                    <span className="text-[9px] font-mono text-gray-400 uppercase">{selectedObject.color}</span>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[9px] text-gray-500 uppercase font-bold">Material</label>
-                  <select 
-                    value={selectedObject.materialType}
-                    onChange={(e) => updateObject(selectedObject.id, { materialType: e.target.value })}
-                    onBlur={() => saveHistory()}
-                    className="w-full bg-[#0F0F0F] border border-[#333] p-1.5 rounded-lg text-[10px] outline-none appearance-none cursor-pointer text-gray-300"
-                  >
-                    <option value="standard">Standard</option>
-                    <option value="physical">Physical</option>
-                    <option value="wireframe">Wireframe</option>
-                  </select>
-                </div>
-              </div>
+              <TexturePanel />
             </section>
-
-              <div className="space-y-4 pt-4 border-t border-[#333]">
-              <div className="text-[10px] uppercase tracking-widest text-[#06B6D4] font-black flex items-center gap-2">
-                <Crosshair size={12} /> Sculpting
-              </div>
-
-              {selectedJointIndex !== null ? (
-                <div className="space-y-4 animate-in fade-in slide-in-from-top-1 duration-200">
-                  <div className="flex items-center justify-between">
-                    <div className="text-[9px] text-gray-400 font-mono bg-[#333]/30 px-2 py-0.5 rounded">Vertex #{selectedJointIndex}</div>
-                    <button 
-                       onClick={() => setSelectedJointIndex(null)}
-                       className="text-[9px] text-[#06B6D4] hover:underline"
-                    >
-                      Deselect
-                    </button>
-                  </div>
-                  
-                  <div className="grid grid-cols-3 gap-2">
-                    {['X', 'Y', 'Z'].map((axis, i) => (
-                      <div key={axis} className="relative">
-                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[8px] text-gray-600 font-bold">{axis}</span>
-                        <input 
-                          type="number"
-                          step="0.01"
-                          value={selectedJoint[i].toFixed(3)}
-                          onChange={(e) => handleVertexChange(i, e.target.value)}
-                          onBlur={() => saveHistory()}
-                          className="w-full bg-[#0F0F0F] border border-[#06B6D4]/30 pl-5 pr-1 py-1.5 rounded text-[10px] outline-none focus:border-[#06B6D4] font-mono text-white"
-                        />
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <label className="text-[9px] text-gray-500 uppercase font-bold">Roundedness (Weight)</label>
-                      <span className="text-[9px] font-mono text-[#06B6D4]">0.50</span>
-                    </div>
-                    <input 
-                      type="range"
-                      min="0" max="1" step="0.01"
-                      className="w-full h-1 bg-[#333] rounded-lg appearance-none cursor-pointer accent-[#06B6D4]"
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="p-6 bg-[#222]/10 border border-dashed border-[#333] rounded-xl text-center group hover:border-[#06B6D4]/30 transition-colors">
-                  <p className="text-[9px] text-gray-600 italic leading-relaxed group-hover:text-gray-400 transition-colors">
-                    Double-click any object in the viewport<br/>to enter Sculpt Mode and select<br/>vertices to begin fine-tuning.
-                  </p>
-                </div>
-              )}
-            </div>
           </>
         ) : (
           <div className="h-full flex flex-col items-center justify-center text-gray-700 text-center p-8 opacity-50">
             <Layers size={40} className="mb-4 text-[#7C3AED] opacity-20" />
-            <p className="text-xs italic uppercase tracking-widest font-black">Canvas Empty</p>
-            <p className="text-[9px] mt-2 text-gray-500 leading-relaxed max-w-[140px]">
-              Add a primitive or select an existing layer to inspect properties.
-            </p>
           </div>
         )}
       </div>
     </div>
   );
 };
-
 export default Inspector;

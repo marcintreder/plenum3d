@@ -1,28 +1,35 @@
-export const generate3DModel = async (prompt, ollamaUrl = 'http://localhost:11434') => {
+export const generate3DModel = async (prompt, referenceImage = null, ollamaUrl = 'http://localhost:11434') => {
   const model = 'mistral'; // Default model
   
-  const systemPrompt = `You are a 3D geometry engine. Return only a JSON object containing:
-- "vertices": flat array of floats [x,y,z] representing the user's prompt.
+  const systemPrompt = `You are an expert 3D generative model creating detailed, beautiful 3D objects with complex sub-elements.
+Generate a JSON object:
+- "vertices": flat array of floats [x,y,z] representing the object.
 - "indices": array of integers for faces (triangles).
 - "color": hex color string (e.g. "#FF0000").
 - "material": string, one of "standard", "physical", or "wireframe".
 
-The geometry should be centered around the origin. 
+The object should be intricate, realistic, and composed of detailed components. 
 Return ONLY the JSON. No other text.`;
 
   try {
+    const body = {
+      model,
+      prompt: `Create a 3D model for: ${prompt}. ${referenceImage ? 'Reference image data provided.' : ''}`,
+      system: systemPrompt,
+      stream: false,
+      format: 'json'
+    };
+
+    if (referenceImage) {
+        body.images = [referenceImage];
+    }
+
     const response = await fetch(`${ollamaUrl}/api/generate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        model,
-        prompt: `Create a 3D model for: ${prompt}`,
-        system: systemPrompt,
-        stream: false,
-        format: 'json'
-      }),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {
@@ -56,20 +63,7 @@ Return ONLY the JSON. No other text.`;
       color: "#7C3AED",
       material: "standard"
     };
-
-    if (prompt.toLowerCase().includes('plane')) {
-      result = {
-        vertices: [-1, 0, -1, 1, 0, -1, 1, 0, 1, -1, 0, 1],
-        indices: [0, 1, 2, 0, 2, 3],
-        color: "#3B82F6",
-        material: "standard"
-      };
-    }
-
-    if (prompt.toLowerCase().includes('wireframe') || prompt.toLowerCase().includes('grid')) {
-        result.material = "wireframe";
-    }
-
+    
     return formatResult(result);
   }
 };
