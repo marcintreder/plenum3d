@@ -157,14 +157,11 @@ const useStore = create((set, get) => ({
     let vertices = [];
     let indices = [];
 
-    // Add at a slight offset from center so they aren't buried
-    const zOffset = (objects.length * 0.5) % 2;
-
     if (type === 'cube') {
       vertices = [
         [-0.5,-0.5,-0.5], [0.5,-0.5,-0.5], [0.5,0.5,-0.5], [-0.5,0.5,-0.5],
         [-0.5,-0.5,0.5], [0.5,-0.5,0.5], [0.5,0.5,0.5], [-0.5,0.5,0.5]
-      ].map(([x,y,z]) => [x, y, z + zOffset]);
+      ];
       indices = [
         0,2,1, 0,3,2, 4,5,6, 4,6,7, 0,1,5, 0,5,4, 2,3,7, 2,7,6, 0,4,7, 0,7,3, 1,2,6, 1,6,5
       ];
@@ -175,9 +172,9 @@ const useStore = create((set, get) => ({
         for (let lon = 0; lon <= segments; lon++) {
           const phi = (lon * 2 * Math.PI) / segments;
           vertices.push([
-            Math.sin(theta) * Math.cos(phi), 
-            Math.cos(theta), 
-            Math.sin(theta) * Math.sin(phi) + zOffset
+            Math.sin(theta) * Math.cos(phi),
+            Math.cos(theta),
+            Math.sin(theta) * Math.sin(phi)
           ]);
         }
       }
@@ -194,21 +191,18 @@ const useStore = create((set, get) => ({
         const theta = (i / segments) * Math.PI * 2;
         const x = Math.cos(theta) * 0.5;
         const z = Math.sin(theta) * 0.5;
-        vertices.push([x, -0.5, z + zOffset], [x, 0.5, z + zOffset]);
+        vertices.push([x, -0.5, z], [x, 0.5, z]);
       }
       for (let i = 0; i < segments; i++) {
-        const b1 = i * 2;
-        const t1 = b1 + 1;
-        const b2 = (i + 1) * 2;
-        const t2 = b2 + 1;
+        const b1 = i * 2, t1 = b1 + 1, b2 = (i + 1) * 2, t2 = b2 + 1;
         indices.push(b1, t1, b2, t1, t2, b2);
       }
     } else if (type === 'cone') {
       const segments = 16;
-      vertices.push([0, 0.5, zOffset]); // Tip
+      vertices.push([0, 0.5, 0]); // Tip
       for (let i = 0; i <= segments; i++) {
         const theta = (i / segments) * Math.PI * 2;
-        vertices.push([Math.cos(theta) * 0.5, -0.5, Math.sin(theta) * 0.5 + zOffset]);
+        vertices.push([Math.cos(theta) * 0.5, -0.5, Math.sin(theta) * 0.5]);
       }
       for (let i = 1; i <= segments; i++) {
         indices.push(0, i, i + 1);
@@ -225,7 +219,7 @@ const useStore = create((set, get) => ({
       metalness: 0.5,
       roughness: 0.5,
       visible: true,
-      position: [0,0,0],
+      position: [3, 0.5, 0],  // spawn beside model, not inside it
       rotation: [0,0,0],
       scale: [1,1,1]
     };

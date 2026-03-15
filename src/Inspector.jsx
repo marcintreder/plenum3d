@@ -36,11 +36,13 @@ const Inspector = () => {
     : null;
   const multiSelected  = selectedVertexIndices.length > 1;
 
-  // Detect faces for surface selection
+  // Detect faces for surface selection — depends on topology (indices) not vertex positions
+  // so this won't re-run on every vertex drag frame
   const faces = useMemo(() => {
     if (!selectedObject?.vertices?.length || !selectedObject?.indices?.length) return [];
+    if (selectedObject.vertices.length > 300) return []; // skip for dense meshes
     return detectFaces(selectedObject.vertices, selectedObject.indices);
-  }, [selectedObject?.id, selectedObject?.vertices, selectedObject?.indices]);
+  }, [selectedObject?.id, selectedObject?.indices]); // intentionally omits vertices
 
   const handleVertexChange = (axis, value) => {
     if (!selectedObject || selectedJointIndex === null) return;

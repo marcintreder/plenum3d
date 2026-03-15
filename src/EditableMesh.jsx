@@ -1,27 +1,26 @@
-import React, { useRef, useMemo, useEffect, useState } from 'react';
-import { PivotControls } from '@react-three/drei';
+import React, { useRef, useMemo, useEffect, useCallback } from 'react';
+import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import useStore from './useStore';
-import { getGridSnap } from './utils/GridManager';
 import VertexHandles from './VertexHandles';
 
 const EditableMesh = ({ object }) => {
   const meshRef = useRef();
   const geomRef = useRef();
+  const { camera, gl } = useThree();
 
-  const selectedObjectId       = useStore(s => s.selectedObjectId);
-  const selectedObjectIds      = useStore(s => s.selectedObjectIds);
-  const editMode               = useStore(s => s.editMode);
-  const setEditMode            = useStore(s => s.setEditMode);
-  const updateObjectTransform  = useStore(s => s.updateObjectTransform);
+  // Granular selectors — each only triggers re-render for THIS object's state change
+  const isSelected      = useStore(s => s.selectedObjectIds.includes(object.id));
+  const isPrimary       = useStore(s => s.selectedObjectId === object.id);
+  const editMode        = useStore(s => s.editMode);
+  const setEditMode     = useStore(s => s.setEditMode);
+  const updateObject    = useStore(s => s.updateObject);
   const setSelectedObjectId    = useStore(s => s.setSelectedObjectId);
   const toggleSelectedObjectId = useStore(s => s.toggleSelectedObjectId);
   const setSelectedJointIndex  = useStore(s => s.setSelectedJointIndex);
+  const setOrbitEnabled        = useStore(s => s.setOrbitEnabled);
 
-  const [isDragging, setIsDragging] = useState(false);
-  const isSelected      = selectedObjectIds.includes(object.id);
-  const isPrimary       = selectedObjectId === object.id;
-  const isVertexMode    = isPrimary && editMode === 'vertex';
+  const isVertexMode = isPrimary && editMode === 'vertex';
 
   // Flat buffers for BufferGeometry
   const flatVertices = useMemo(() => {
@@ -39,9 +38,7 @@ const EditableMesh = ({ object }) => {
     if (geomRef.current) geomRef.current.computeVertexNormals();
   }, [object.vertices, object.indices]);
 
-
   const Material = useMemo(() => {
-    // Non-primary multi-selected objects get a purple emissive glow
     const multiSelectGlow = isSelected && !isPrimary;
     const props = {
       color: object.color,
@@ -57,37 +54,75 @@ const EditableMesh = ({ object }) => {
     return <meshStandardMaterial {...props} />;
   }, [object.color, object.materialType, object.metalness, object.roughness, isVertexMode, isSelected, isPrimary]);
 
-  if (!object.visible) return null;
-
-  const handleMeshClick = (e) => {
+  // ── Direct drag: camera-facing plane, same technique as vertex handles ──
+  const handlePointerDown = useCallback((e) => {
+    if (isVertexMode) return;
     e.stopPropagation();
+
     if (e.shiftKey) {
       toggleSelectedObjectId(object.id);
-    } else {
-      setSelectedObjectId(object.id);
+      return;
     }
-  };
+    setSelectedObjectId(object.id);
 
-  const handleDoubleClick = (e) => {
+    const cameraDir = new THREE.Vector3();
+    camera.getWorldDirection(cameraDir);
+    const objPos = new THREE.Vector3(...(object.position || [0, 0, 0]));
+    const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(cameraDir, objPos);
+
+    const rect = gl.domElement.getBoundingClientRect();
+    const toNDC = (cx, cy) => new THREE.Vector2(
+      ((cx - rect.left) / rect.width)  *  2 - 1,
+      ((cy - rect.top)  / rect.height) * -2 + 1
+    );
+
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(toNDC(e.clientX, e.clientY), camera);
+    const hitStart = new THREE.Vector3();
+    raycaster.ray.intersectPlane(plane, hitStart);
+
+    const posStart = [...(object.position || [0, 0, 0])];
+    let hasMoved = false;
+
+    setOrbitEnabled(false);
+
+    const onMove = (me) => {
+      if (!hasMoved) {
+        useStore.getState().saveHistory();
+        hasMoved = true;
+      }
+      raycaster.setFromCamera(toNDC(me.clientX, me.clientY), camera);
+      const hit = new THREE.Vector3();
+      if (!raycaster.ray.intersectPlane(plane, hit)) return;
+      const d = hit.clone().sub(hitStart);
+      updateObject(object.id, { position: [posStart[0]+d.x, posStart[1]+d.y, posStart[2]+d.z] });
+    };
+
+    const onUp = () => {
+      setOrbitEnabled(true);
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup',   onUp);
+    };
+
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup',   onUp);
+  }, [isVertexMode, object, camera, gl, toggleSelectedObjectId, setSelectedObjectId, setOrbitEnabled, updateObject]);
+
+  const handleDoubleClick = useCallback((e) => {
     e.stopPropagation();
     setSelectedObjectId(object.id);
     setEditMode('vertex');
-  };
+  }, [setSelectedObjectId, setEditMode, object.id]);
 
-  const handleTransformStart = () => {
-    // Snapshot state BEFORE the drag so one Ctrl+Z undoes the whole move
-    useStore.getState().saveHistory();
-    setIsDragging(true);
-  };
-  const handleTransformEnd = () => setIsDragging(false);
+  if (!object.visible) return null;
 
   const meshElement = (
     <mesh
       ref={meshRef}
-      position={object.position || [0,0,0]}
-      rotation={object.rotation || [0,0,0]}
-      scale={object.scale    || [1,1,1]}
-      onClick={handleMeshClick}
+      position={object.position || [0, 0, 0]}
+      rotation={object.rotation || [0, 0, 0]}
+      scale={object.scale    || [1, 1, 1]}
+      onPointerDown={handlePointerDown}
       onDoubleClick={handleDoubleClick}
       onPointerMissed={() => setSelectedJointIndex(null)}
     >
@@ -101,43 +136,12 @@ const EditableMesh = ({ object }) => {
     </mesh>
   );
 
-  // --- Vertex edit mode ---
   if (isVertexMode) {
     return (
       <group>
-        {/* The mesh itself (slightly transparent so vertices are visible) */}
         {meshElement}
-
-        {/* Draggable vertex dots + edge wireframe (owned by VertexHandles) */}
         <VertexHandles object={object} />
       </group>
-    );
-  }
-
-  // --- Object mode: PivotControls when selected ---
-  if (isSelected) {
-    return (
-      <PivotControls
-        object={meshRef}
-        onDragStart={handleTransformStart}
-        onDragEnd={handleTransformEnd}
-        onDrag={(matrix) => {
-          const position = new THREE.Vector3();
-          const q = new THREE.Quaternion();
-          const s = new THREE.Vector3();
-          matrix.decompose(position, q, s);
-          const snapped = getGridSnap([position.x, position.y, position.z], 0.5);
-          updateObjectTransform(object.id, snapped, [0,0,0], [1,1,1]);
-        }}
-        depthTest={false}
-        scale={0.75}
-        lineWidth={4}
-        fixed
-        displayValues={false}
-        autoScale={false}
-      >
-        {meshElement}
-      </PivotControls>
     );
   }
 
