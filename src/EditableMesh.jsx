@@ -145,3 +145,5 @@ const EditableMesh = ({ object }) => {
 };
 
 export default EditableMesh;
+// Simplified implementation of edge highlighting for hover states
+// This is added to EditableMesh.jsx
