@@ -4,7 +4,7 @@ import { OrbitControls, Grid } from "@react-three/drei";
 import {
   Settings, Download, Circle, Square,
   Triangle, Cylinder as CylinderIcon, Code,
-  Undo2, Redo2, Bot, Sparkles, Paperclip, Terminal
+  Undo2, Redo2, Bot, Sparkles, Paperclip, Terminal, Sun
 } from "lucide-react";
 import ConsolePanel from "./components/ConsolePanel";
 import EditableMesh from "./EditableMesh";
@@ -50,6 +50,8 @@ const App = () => {
   const [consoleOpen, setConsoleOpen] = useState(false);
   const [providerOverride, setProviderOverride] = useState(null);
   const [modelOverride, setModelOverride] = useState(null);
+  const [lightOpen, setLightOpen] = useState(false);
+  const [light, setLight] = useState({ ambientInt: 1.5, dirInt: 1.5, azimuth: 45, elevation: 45 });
 
   const addLog = useCallback((type, msg) => {
     const ts = new Date().toLocaleTimeString('en-US', { hour12: false });
@@ -369,8 +371,16 @@ const App = () => {
           shadows
         >
           <color attach="background" args={["#0F0F0F"]} />
-          <ambientLight intensity={1.5} />
-          <directionalLight position={[10, 10, 10]} intensity={1.5} castShadow />
+          <ambientLight intensity={light.ambientInt} />
+          <directionalLight
+            position={[
+              Math.cos(light.azimuth * Math.PI / 180) * Math.cos(light.elevation * Math.PI / 180) * 10,
+              Math.sin(light.elevation * Math.PI / 180) * 10,
+              Math.sin(light.azimuth * Math.PI / 180) * Math.cos(light.elevation * Math.PI / 180) * 10,
+            ]}
+            intensity={light.dirInt}
+            castShadow
+          />
           <pointLight position={[-10, -10, -10]} intensity={1} color="#7C3AED" />
 
           <Exporter />
@@ -381,6 +391,48 @@ const App = () => {
           <Grid infiniteGrid fadeDistance={50} sectionColor="#333" cellColor="#222" />
           <OrbitControls makeDefault enabled={orbitEnabled} />
         </Canvas>
+
+        {/* Light Controls */}
+        <div className="absolute top-4 right-4 z-10" onClick={e => e.stopPropagation()}>
+          <button
+            onClick={() => setLightOpen(v => !v)}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] font-bold transition-all shadow-lg ${
+              lightOpen ? 'bg-[#1A1A1A] border border-[#555] text-yellow-300' : 'bg-[#1A1A1A]/80 border border-[#333] text-gray-500 hover:text-yellow-300 hover:border-[#555]'
+            }`}
+          >
+            <Sun size={11} /> Light
+          </button>
+
+          {lightOpen && (
+            <div className="mt-1.5 bg-[#1A1A1A]/95 border border-[#333] rounded-2xl p-4 shadow-2xl w-56 space-y-4 backdrop-blur-xl">
+              {[
+                { label: 'Ambient', key: 'ambientInt', min: 0, max: 5, step: 0.1 },
+                { label: 'Sun Intensity', key: 'dirInt', min: 0, max: 5, step: 0.1 },
+                { label: 'Azimuth', key: 'azimuth', min: 0, max: 360, step: 1, unit: '°' },
+                { label: 'Elevation', key: 'elevation', min: 0, max: 90, step: 1, unit: '°' },
+              ].map(({ label, key, min, max, step, unit }) => (
+                <div key={key} className="space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-[9px] text-gray-500 uppercase font-bold">{label}</span>
+                    <span className="text-[9px] font-mono text-gray-400">{light[key].toFixed(step < 1 ? 1 : 0)}{unit || ''}</span>
+                  </div>
+                  <input
+                    type="range" min={min} max={max} step={step}
+                    value={light[key]}
+                    onChange={e => setLight(prev => ({ ...prev, [key]: parseFloat(e.target.value) }))}
+                    className="w-full accent-yellow-400"
+                  />
+                </div>
+              ))}
+              <button
+                onClick={() => setLight({ ambientInt: 1.5, dirInt: 1.5, azimuth: 45, elevation: 45 })}
+                className="w-full text-[9px] text-gray-600 hover:text-gray-400 transition-colors py-0.5"
+              >
+                Reset defaults
+              </button>
+            </div>
+          )}
+        </div>
 
         {/* Floating Prompt Bar */}
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-full max-w-xl px-4 z-10" onClick={(e) => e.stopPropagation()}>

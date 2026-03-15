@@ -35,7 +35,10 @@ const EditableMesh = ({ object }) => {
   }, [object.indices]);
 
   useEffect(() => {
-    if (geomRef.current) geomRef.current.computeVertexNormals();
+    if (!geomRef.current) return;
+    const pos = geomRef.current.attributes.position;
+    if (pos) pos.needsUpdate = true;
+    geomRef.current.computeVertexNormals();
   }, [object.vertices, object.indices]);
 
   const Material = useMemo(() => {
