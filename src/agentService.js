@@ -3,71 +3,71 @@
 const AGENT_TOOLS = [
   {
     name: 'scale_objects',
-    description: 'Scale objects toward their centroid. Use to make things bigger or smaller.',
+    description: 'Scale objects toward their centroid — make bigger or smaller. Synonyms: resize, grow, shrink, expand, compress, enlarge, reduce, increase size, decrease size.',
     input_schema: {
       type: 'object',
       required: ['target', 'percent'],
       properties: {
         target: { type: 'string', description: 'Name pattern, group name, or "all". Examples: "wheels", "front wing", "chassis", "all"' },
-        percent: { type: 'number', description: 'Percentage change. -50 = 50% smaller, 100 = 2× bigger, -25 = 25% smaller' },
+        percent: { type: 'number', description: 'Percentage change. -50 = 50% smaller/half-size, +100 = double size, -25 = 25% smaller, +50 = 50% larger' },
       },
     },
   },
   {
     name: 'smooth_objects',
-    description: 'Apply Laplacian smoothing to round sharp angles and edges. Use when asked to round, soften, or smooth a part.',
+    description: 'Apply Laplacian smoothing to round sharp angles. Synonyms: round, soften, polish, blend, organic, smooth out edges.',
     input_schema: {
       type: 'object',
       required: ['target'],
       properties: {
         target: { type: 'string' },
-        iterations: { type: 'number', description: '1–5, default 2' },
-        factor: { type: 'number', description: '0.1–1.0 how much to smooth, default 0.5' },
+        iterations: { type: 'number', description: '1–5, default 2. More iterations = smoother.' },
+        factor: { type: 'number', description: '0.1–1.0 smoothing strength, default 0.5' },
       },
     },
   },
   {
     name: 'change_color',
-    description: 'Change the color of objects.',
+    description: 'Change the color of objects. Synonyms: paint, tint, recolor, set color to, make it [color], turn [color].',
     input_schema: {
       type: 'object',
       required: ['target', 'color'],
       properties: {
         target: { type: 'string' },
-        color: { type: 'string', description: 'Hex color string. Common: #E02424=red, #1D4ED8=blue, #15803D=green, #111111=black, #F9FAFB=white, #9CA3AF=silver, #EAB308=yellow, #EA580C=orange, #7C3AED=purple, #78350F=brown' },
+        color: { type: 'string', description: 'Hex color. Common: red=#E02424, blue=#1D4ED8, green=#15803D, black=#111111, white=#F9FAFB, silver=#9CA3AF, yellow=#EAB308, orange=#EA580C, purple=#7C3AED, brown=#78350F, gold=#D97706, gray=#6B7280' },
       },
     },
   },
   {
     name: 'move_objects',
-    description: 'Move objects by a delta in world coordinates. Y is up/down, X is left/right, Z is forward/backward.',
+    description: 'Move/translate objects by a delta. Synonyms: shift, push, pull, offset, reposition, nudge. Y is up/down, X is left/right, Z is forward/back.',
     input_schema: {
       type: 'object',
       required: ['target'],
       properties: {
         target: { type: 'string' },
-        x: { type: 'number', description: 'Delta in X axis (left/right)' },
-        y: { type: 'number', description: 'Delta in Y axis (up/down)' },
-        z: { type: 'number', description: 'Delta in Z axis (forward/backward)' },
+        x: { type: 'number', description: 'Delta X (positive = right)' },
+        y: { type: 'number', description: 'Delta Y (positive = up)' },
+        z: { type: 'number', description: 'Delta Z (positive = backward)' },
       },
     },
   },
   {
     name: 'rotate_objects',
-    description: 'Rotate objects around an axis by degrees. Use to tilt, spin, or reorient parts.',
+    description: 'Rotate objects around an axis. Synonyms: turn, spin, tilt, angle, flip, orient. Default axis is Y (vertical spin).',
     input_schema: {
       type: 'object',
       required: ['target', 'degrees'],
       properties: {
         target: { type: 'string' },
-        degrees: { type: 'number', description: 'Degrees to rotate. Positive = counterclockwise when viewed from above (Y axis).' },
-        axis: { type: 'string', enum: ['x', 'y', 'z'], description: 'Axis to rotate around. Default: y (vertical spin). x = tilt forward/back, z = tilt left/right.' },
+        degrees: { type: 'number', description: 'Degrees to rotate. Positive = counterclockwise from above.' },
+        axis: { type: 'string', enum: ['x', 'y', 'z'], description: 'y = vertical spin (default), x = tilt forward/back, z = tilt left/right' },
       },
     },
   },
   {
     name: 'toggle_visibility',
-    description: 'Show or hide objects.',
+    description: 'Show or hide objects. Synonyms: hide=make invisible/conceal/turn off; show=reveal/unhide/make visible.',
     input_schema: {
       type: 'object',
       required: ['target', 'visible'],
@@ -78,20 +78,34 @@ const AGENT_TOOLS = [
     },
   },
   {
+    name: 'change_material',
+    description: 'Change material type and physical properties. Use for: metallic/shiny/glossy → metalness=0.9 roughness=0.1; matte/rough/dull → metalness=0 roughness=0.9; wireframe → materialType=wireframe.',
+    input_schema: {
+      type: 'object',
+      required: ['target'],
+      properties: {
+        target: { type: 'string' },
+        materialType: { type: 'string', enum: ['standard', 'physical', 'wireframe'] },
+        metalness: { type: 'number', description: '0.0 = matte, 1.0 = fully metallic' },
+        roughness: { type: 'number', description: '0.0 = mirror-smooth, 1.0 = fully rough/matte' },
+      },
+    },
+  },
+  {
     name: 'group_objects',
-    description: 'Create a new named group from matching objects.',
+    description: 'Create a named group from matching objects. Synonyms: combine, collect, bundle, organize into.',
     input_schema: {
       type: 'object',
       required: ['target', 'group_name'],
       properties: {
         target: { type: 'string' },
-        group_name: { type: 'string', description: 'Name for the new group' },
+        group_name: { type: 'string' },
       },
     },
   },
   {
     name: 'ungroup_objects',
-    description: 'Dissolve a group, releasing its objects as ungrouped individuals. The objects remain in the scene.',
+    description: 'Dissolve a group, releasing its objects as ungrouped. Synonyms: separate, split, dissolve group, unmerge.',
     input_schema: {
       type: 'object',
       required: ['target'],
@@ -101,33 +115,19 @@ const AGENT_TOOLS = [
     },
   },
   {
-    name: 'change_material',
-    description: 'Change material type and physical properties (metalness, roughness) of objects.',
+    name: 'delete_objects',
+    description: 'Permanently remove objects from the scene. Synonyms: erase, destroy, get rid of, remove.',
     input_schema: {
       type: 'object',
       required: ['target'],
       properties: {
         target: { type: 'string' },
-        materialType: { type: 'string', enum: ['standard', 'physical', 'wireframe'] },
-        metalness: { type: 'number', description: '0.0 = matte, 1.0 = fully metallic' },
-        roughness: { type: 'number', description: '0.0 = mirror-smooth, 1.0 = fully rough' },
-      },
-    },
-  },
-  {
-    name: 'delete_objects',
-    description: 'Permanently remove objects from the scene.',
-    input_schema: {
-      type: 'object',
-      required: ['target'],
-      properties: {
-        target: { type: 'string', description: 'Name pattern or group name to delete.' },
       },
     },
   },
   {
     name: 'add_primitive',
-    description: 'Add a new primitive shape (cube, sphere, cylinder, or cone) to the scene.',
+    description: 'Add a new basic shape to the scene. Synonyms: create, insert, place, spawn, put.',
     input_schema: {
       type: 'object',
       required: ['primitive_type'],
@@ -139,31 +139,27 @@ const AGENT_TOOLS = [
   },
 ];
 
-// ── Target resolution: find objects matching a string ────────────────────────
+// ── Target resolution ─────────────────────────────────────────────────────────
 
 export function resolveTargets(target, objects, groups) {
   const t = (target || '').toLowerCase().trim();
   if (!t || t === 'all') return objects;
 
-  // Try exact group name match
   const group = groups.find(g => g.name.toLowerCase() === t || t === g.id.toLowerCase());
   if (group) return objects.filter(o => o.groupId === group.id);
 
-  // Try partial group name match
   const partialGroup = groups.find(g =>
     g.name.toLowerCase().includes(t) || t.includes(g.name.toLowerCase())
   );
   if (partialGroup) return objects.filter(o => o.groupId === partialGroup.id);
 
-  // Try object name pattern
   const byName = objects.filter(o => o.name.toLowerCase().includes(t));
   if (byName.length) return byName;
 
-  // Fallback: first word match
   return objects.filter(o => o.name.toLowerCase().split(' ')[0] === t.split(' ')[0]);
 }
 
-// ── Scene description for agent context ─────────────────────────────────────
+// ── Scene description ─────────────────────────────────────────────────────────
 
 function buildSceneDescription(objects, groups) {
   const lines = [];
@@ -176,23 +172,69 @@ function buildSceneDescription(objects, groups) {
   return `SCENE (${objects.length} objects):\n${lines.join('\n')}`;
 }
 
-// ── Shared system prompt text ─────────────────────────────────────────────────
+// ── Shared system prompt ──────────────────────────────────────────────────────
 
 function buildSystemPrompt(sceneDesc) {
-  return `You are an AI assistant controlling a 3D sculpting tool called Sculpt3D. Translate the user's natural language command into tool calls that modify the scene.
+  return `You are an AI assistant controlling a 3D sculpting tool called Sculpt3D. Translate the user's natural language command into one or more tool calls.
 
 ${sceneDesc}
 
-Rules:
-- Scale: "50% smaller" → percent=-50 | "50% bigger/larger" → percent=+50 | "double" → percent=+100 | "half" → percent=-50
-- Targets: use group names for categories (e.g. "wheels"), object names for specific parts (e.g. "nose cone"), "all" for everything
-- Colors: red=#E02424, blue=#1D4ED8, green=#15803D, black=#111111, white=#F9FAFB, silver=#9CA3AF, yellow=#EAB308, orange=#EA580C, purple=#7C3AED, brown=#78350F, gold=#D97706
-- When user says "round", "smooth", or "soften" something → use smooth_objects
-- Rotation: "spin 90 degrees" → degrees=90, axis=y | "tilt forward" → axis=x | default axis is y
-- Only call tools that match the user's request. Prefer specific targets over "all".`;
+Synonym guide (natural language → tool):
+- "make X smaller / decrease / reduce / shrink / compress X" → scale_objects percent=negative
+- "make X bigger / larger / increase / grow / expand / enlarge X" → scale_objects percent=positive
+- "double X / 2× X" → scale_objects percent=100
+- "half the size / make X tiny" → scale_objects percent=-50
+- "paint / color / tint / turn X red/blue/…" → change_color
+- "hide / make invisible / conceal X" → toggle_visibility visible=false
+- "show / reveal / unhide X" → toggle_visibility visible=true
+- "smooth / round / soften / polish X" → smooth_objects
+- "move / shift / push X up/down/left/right" → move_objects
+- "rotate / turn / spin / tilt X by N degrees" → rotate_objects
+- "make X metallic / shiny / glossy" → change_material metalness=0.9 roughness=0.1
+- "make X matte / rough / dull" → change_material metalness=0 roughness=0.9
+- "wireframe X" → change_material materialType=wireframe
+- "delete / remove / erase / get rid of X" → delete_objects
+- "add / create / place a cube/sphere/cylinder/cone" → add_primitive
+- "group X as Y / combine X into Y" → group_objects
+- "ungroup / separate / dissolve X" → ungroup_objects
+
+Target guide:
+- Use group names for categories (e.g. "wheels" → target="wheels")
+- Use object names for specific parts (e.g. "nose cone" → target="nose cone")
+- Use "all" to affect everything
+
+Only call tools that clearly match the user's intent.`;
 }
 
-// ── Call Anthropic with tool use ─────────────────────────────────────────────
+// ── Robust JSON extractor (handles markdown, wrapped objects, partial text) ───
+
+function extractJSON(text) {
+  const t = text.trim();
+  // Direct parse
+  try { return JSON.parse(t); } catch {}
+  // Strip markdown code fences
+  const fenced = t.replace(/```(?:json)?\s*([\s\S]*?)```/g, '$1').trim();
+  try { return JSON.parse(fenced); } catch {}
+  // Find outermost array
+  const arrIdx = fenced.indexOf('[');
+  if (arrIdx !== -1) {
+    const arrEnd = fenced.lastIndexOf(']');
+    if (arrEnd > arrIdx) {
+      try { return JSON.parse(fenced.slice(arrIdx, arrEnd + 1)); } catch {}
+    }
+  }
+  // Find outermost object
+  const objIdx = fenced.indexOf('{');
+  if (objIdx !== -1) {
+    const objEnd = fenced.lastIndexOf('}');
+    if (objEnd > objIdx) {
+      try { return JSON.parse(fenced.slice(objIdx, objEnd + 1)); } catch {}
+    }
+  }
+  return null;
+}
+
+// ── Call Anthropic ────────────────────────────────────────────────────────────
 
 async function callAnthropicAgent(command, sceneDesc, apiKey, log) {
   log('info', 'Sending agent command to Anthropic (claude-sonnet-4-6)…');
@@ -212,7 +254,10 @@ async function callAnthropicAgent(command, sceneDesc, apiKey, log) {
       tool_choice: { type: 'auto' },
     }),
   });
-  if (!res.ok) throw new Error(`Anthropic agent error: ${res.statusText}`);
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`Anthropic error ${res.status}: ${body || res.statusText}`);
+  }
   const data = await res.json();
   const ops = (data.content || [])
     .filter(b => b.type === 'tool_use')
@@ -221,7 +266,7 @@ async function callAnthropicAgent(command, sceneDesc, apiKey, log) {
   return ops;
 }
 
-// ── Call OpenAI with function calling ────────────────────────────────────────
+// ── Call OpenAI ───────────────────────────────────────────────────────────────
 
 async function callOpenAIAgent(command, sceneDesc, apiKey, log) {
   log('info', 'Sending agent command to OpenAI (gpt-4o)…');
@@ -243,86 +288,55 @@ async function callOpenAIAgent(command, sceneDesc, apiKey, log) {
       tool_choice: 'auto',
     }),
   });
-  if (!res.ok) throw new Error(`OpenAI agent error: ${res.statusText}`);
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`OpenAI error ${res.status}: ${body || res.statusText}`);
+  }
   const data = await res.json();
   const calls = [];
   for (const choice of data.choices) {
     for (const tc of (choice.message?.tool_calls || [])) {
-      try {
-        calls.push({ tool: tc.function.name, input: JSON.parse(tc.function.arguments) });
-      } catch { /* skip malformed */ }
+      try { calls.push({ tool: tc.function.name, input: JSON.parse(tc.function.arguments) }); } catch {}
     }
-    // Legacy function_call fallback
     if (choice.message?.function_call) {
       try {
         const fc = choice.message.function_call;
         calls.push({ tool: fc.name, input: JSON.parse(fc.arguments) });
-      } catch { /* skip */ }
+      } catch {}
     }
   }
   log('success', `OpenAI returned ${calls.length} operation${calls.length !== 1 ? 's' : ''}`);
   return calls;
 }
 
-// ── Simple regex fallback (no API key needed) ────────────────────────────────
-
-function parseCommandFallback(command, objects, groups) {
-  const ops = [];
-  const cmd = command.toLowerCase();
-
-  const scaleMatch = cmd.match(/(?:decrease|reduce|shrink|make|increase|grow)\s+(.+?)\s+(?:by\s+)?(\d+)%\s*(?:smaller|larger|bigger)?/i)
-    || cmd.match(/(?:scale|resize)\s+(.+?)\s+(?:by\s+)?(-?\d+)%/i)
-    || cmd.match(/(.+?)\s+(\d+)%\s+(?:smaller|larger|bigger)/i);
-
-  if (scaleMatch) {
-    const target = scaleMatch[1].trim();
-    let pct = parseFloat(scaleMatch[2]);
-    if (cmd.includes('smaller') || cmd.includes('decrease') || cmd.includes('reduce') || cmd.includes('shrink')) pct = -Math.abs(pct);
-    else pct = Math.abs(pct);
-    ops.push({ tool: 'scale_objects', input: { target, percent: pct } });
-  }
-
-  const smoothMatch = cmd.match(/(?:smooth|round|soften)\s+(.+)/i);
-  if (smoothMatch) {
-    ops.push({ tool: 'smooth_objects', input: { target: smoothMatch[1].trim(), iterations: 2, factor: 0.5 } });
-  }
-
-  const colorMap = { red: '#E02424', blue: '#1D4ED8', green: '#15803D', black: '#111111', white: '#F9FAFB', silver: '#9CA3AF', yellow: '#EAB308', orange: '#EA580C', purple: '#7C3AED' };
-  const colorMatch = cmd.match(/(?:color|paint|make)\s+(.+?)\s+(red|blue|green|black|white|silver|yellow|orange|purple)/i);
-  if (colorMatch) {
-    ops.push({ tool: 'change_color', input: { target: colorMatch[1].trim(), color: colorMap[colorMatch[2].toLowerCase()] } });
-  }
-
-  return ops;
-}
-
-// ── Call Ollama ───────────────────────────────────────────────────────────────
+// ── Call Ollama (chat with generate fallback) ─────────────────────────────────
 
 async function callOllamaAgent(command, sceneDesc, ollamaUrl, modelOverride, log) {
   const model = modelOverride || 'mistral';
   log('info', `Sending agent command to Ollama (${model})…`);
-  log('warn', 'Large models can be slow — console will update when done.');
 
-  const systemPrompt = `You are an AI assistant controlling a 3D sculpting tool. The user gives natural language commands to modify a 3D scene. Respond ONLY with a JSON array of operations.
+  // Compact system prompt for local models — shorter = faster + more reliable
+  const systemPrompt = `You control a 3D scene. Respond ONLY with a JSON array of operations. No explanation, no markdown.
 
 ${sceneDesc}
 
-Available operations:
-- {"tool":"scale_objects","input":{"target":"<name or group>","percent":<number>}}
-- {"tool":"smooth_objects","input":{"target":"<name or group>","iterations":<1-5>,"factor":<0.1-1.0>}}
-- {"tool":"change_color","input":{"target":"<name or group>","color":"<hex>"}}
-- {"tool":"move_objects","input":{"target":"<name or group>","x":<n>,"y":<n>,"z":<n>}}
-- {"tool":"rotate_objects","input":{"target":"<name or group>","degrees":<n>,"axis":"x"|"y"|"z"}}
-- {"tool":"toggle_visibility","input":{"target":"<name or group>","visible":<bool>}}
-- {"tool":"change_material","input":{"target":"<name or group>","materialType":"standard"|"physical"|"wireframe","metalness":<0-1>,"roughness":<0-1>}}
-- {"tool":"delete_objects","input":{"target":"<name or group>"}}
-- {"tool":"add_primitive","input":{"primitive_type":"cube"|"sphere"|"cylinder"|"cone","color":"<hex>"}}
-- {"tool":"group_objects","input":{"target":"<name or group>","group_name":"<new group name>"}}
-- {"tool":"ungroup_objects","input":{"target":"<group name>"}}
+Operations:
+{"tool":"scale_objects","input":{"target":"<name>","percent":<n>}}   // bigger:positive, smaller:negative. double=100, half=-50
+{"tool":"smooth_objects","input":{"target":"<name>","iterations":<1-5>,"factor":<0.1-1>}}
+{"tool":"change_color","input":{"target":"<name>","color":"<#hex>"}}   // red=#E02424 blue=#1D4ED8 green=#15803D black=#111111 white=#F9FAFB silver=#9CA3AF yellow=#EAB308 orange=#EA580C
+{"tool":"move_objects","input":{"target":"<name>","x":<n>,"y":<n>,"z":<n>}}
+{"tool":"rotate_objects","input":{"target":"<name>","degrees":<n>,"axis":"x"|"y"|"z"}}
+{"tool":"toggle_visibility","input":{"target":"<name>","visible":<bool>}}
+{"tool":"change_material","input":{"target":"<name>","materialType":"standard"|"physical"|"wireframe","metalness":<0-1>,"roughness":<0-1>}}
+{"tool":"delete_objects","input":{"target":"<name>"}}
+{"tool":"add_primitive","input":{"primitive_type":"cube"|"sphere"|"cylinder"|"cone","color":"<#hex>"}}
+{"tool":"group_objects","input":{"target":"<name>","group_name":"<name>"}}
+{"tool":"ungroup_objects","input":{"target":"<name>"}}
 
-Rules: "50% smaller"→percent=-50, "50% bigger"→percent=+50, "double"→percent=+100, "half"→percent=-50.
-Colors: red=#E02424, blue=#1D4ED8, green=#15803D, black=#111111, white=#F9FAFB, silver=#9CA3AF, yellow=#EAB308, orange=#EA580C.
-Return ONLY a valid JSON array. No explanation, no markdown.`;
+Examples:
+"make wheels smaller" → [{"tool":"scale_objects","input":{"target":"wheels","percent":-30}}]
+"paint chassis red" → [{"tool":"change_color","input":{"target":"chassis","color":"#E02424"}}]
+"round the nose cone" → [{"tool":"smooth_objects","input":{"target":"nose cone","iterations":2,"factor":0.5}}]`;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 180_000);
@@ -332,8 +346,19 @@ Return ONLY a valid JSON array. No explanation, no markdown.`;
     log('info', `Still processing… (${elapsed}s elapsed)`);
   }, 15_000);
 
+  const parseOps = (text) => {
+    const parsed = extractJSON(text);
+    if (!parsed) {
+      log('warn', 'Could not parse JSON from Ollama response');
+      return null; // signal failure
+    }
+    return Array.isArray(parsed) ? parsed : (parsed.operations || parsed.ops || []);
+  };
+
   try {
-    const res = await fetch(`${ollamaUrl}/api/chat`, {
+    // ── Attempt 1: /api/chat (no format:json — causes 500 on many models) ──────
+    let text = null;
+    const chatRes = await fetch(`${ollamaUrl}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -343,27 +368,150 @@ Return ONLY a valid JSON array. No explanation, no markdown.`;
           { role: 'user',   content: command },
         ],
         stream: false,
-        format: 'json',
       }),
       signal: controller.signal,
     });
-    if (!res.ok) throw new Error(`Ollama agent error: ${res.statusText}`);
-    const data = await res.json();
-    const text = data.message?.content || data.response || '';
-    try {
-      const parsed = JSON.parse(text);
-      const ops = Array.isArray(parsed) ? parsed : (parsed.operations || []);
-      log('success', `Ollama agent returned ${ops.length} operation${ops.length !== 1 ? 's' : ''}`);
-      return ops;
-    } catch {
-      console.warn('Ollama agent returned non-JSON:', text);
-      log('warn', 'Ollama returned non-JSON response — no operations applied');
+
+    if (chatRes.ok) {
+      const data = await chatRes.json();
+      text = data.message?.content || data.response || '';
+    } else {
+      log('warn', `Chat endpoint returned ${chatRes.status}, trying /api/generate…`);
+      // ── Attempt 2: /api/generate fallback ───────────────────────────────────
+      const genRes = await fetch(`${ollamaUrl}/api/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model,
+          system: systemPrompt,
+          prompt: command,
+          stream: false,
+        }),
+        signal: controller.signal,
+      });
+      if (!genRes.ok) throw new Error(`Ollama error ${genRes.status}: ${genRes.statusText}`);
+      const data = await genRes.json();
+      text = data.response || '';
+    }
+
+    const ops = parseOps(text);
+    if (ops === null) {
+      log('warn', 'Ollama returned unparseable response — falling through to regex');
       return [];
     }
+    log('success', `Ollama returned ${ops.length} operation${ops.length !== 1 ? 's' : ''}`);
+    return ops;
   } finally {
     clearTimeout(timeout);
     clearInterval(heartbeat);
   }
+}
+
+// ── Comprehensive regex fallback (works with no API at all) ───────────────────
+
+function parseCommandFallback(command, objects, groups) {
+  const ops = [];
+  const cmd = command.toLowerCase().trim();
+
+  // ── Scale ─────────────────────────────────────────────────────────────────────
+  const SHRINK = /\b(?:smaller|decrease|reduce|shrink|compress|scale\s+down|miniaturize|less)\b/;
+  const GROW   = /\b(?:bigger|larger|increase|grow|expand|enlarge|scale\s+up|more)\b/;
+
+  const pctMatch =
+    cmd.match(/(?:decrease|reduce|shrink|compress|increase|grow|expand|make|scale|resize)\s+(?:the\s+)?(.+?)\s+(?:by\s+)?(\d+)\s*%/i) ||
+    cmd.match(/(.+?)\s+(\d+)\s*%\s+(?:smaller|larger|bigger|more|less)/i) ||
+    cmd.match(/(?:scale|resize)\s+(?:the\s+)?(.+?)\s+(?:by\s+)?(-?\d+)\s*%/i);
+
+  if (pctMatch) {
+    const target = pctMatch[1].replace(/\b(?:by|the|a|an)\b/g, '').trim();
+    let pct = parseFloat(pctMatch[2]);
+    pct = SHRINK.test(cmd) ? -Math.abs(pct) : Math.abs(pct);
+    ops.push({ tool: 'scale_objects', input: { target, percent: pct } });
+  } else if (/\bdouble\b/.test(cmd)) {
+    const t = cmd.replace(/^(?:double|make\s+double|2x)\s+(?:the\s+)?(?:size\s+of\s+)?(?:the\s+)?/i, '').trim() || 'all';
+    ops.push({ tool: 'scale_objects', input: { target: t, percent: 100 } });
+  } else if (/\bhalf\b/.test(cmd)) {
+    const t = cmd.replace(/^(?:make|set)\s+(?:the\s+)?|half(?:\s+(?:the\s+)?size(?:\s+of)?)?(?:\s+(?:the\s+)?)?/gi, '').trim() || 'all';
+    ops.push({ tool: 'scale_objects', input: { target: t, percent: -50 } });
+  } else if (GROW.test(cmd) && !pctMatch) {
+    const t = cmd.replace(/^(?:make|grow|enlarge|expand)\s+(?:the\s+)?/i, '')
+                  .replace(/\b(?:bigger|larger|more)\b/g, '').trim() || 'all';
+    ops.push({ tool: 'scale_objects', input: { target: t, percent: 50 } });
+  } else if (SHRINK.test(cmd) && !pctMatch) {
+    const t = cmd.replace(/^(?:make|shrink|reduce|decrease)\s+(?:the\s+)?/i, '')
+                  .replace(/\b(?:smaller|less)\b/g, '').trim() || 'all';
+    ops.push({ tool: 'scale_objects', input: { target: t, percent: -30 } });
+  }
+
+  // ── Smooth ────────────────────────────────────────────────────────────────────
+  const smoothMatch = cmd.match(/(?:smooth|round|soften|polish|blend)\s+(?:out\s+)?(?:the\s+)?(.+)/i);
+  if (smoothMatch) {
+    ops.push({ tool: 'smooth_objects', input: { target: smoothMatch[1].trim(), iterations: 2, factor: 0.5 } });
+  }
+
+  // ── Color ─────────────────────────────────────────────────────────────────────
+  const colorMap = {
+    red: '#E02424', blue: '#1D4ED8', green: '#15803D', black: '#111111',
+    white: '#F9FAFB', silver: '#9CA3AF', yellow: '#EAB308', orange: '#EA580C',
+    purple: '#7C3AED', brown: '#78350F', gold: '#D97706', gray: '#6B7280', grey: '#6B7280',
+  };
+  const colorWords = Object.keys(colorMap).join('|');
+  const colorMatch =
+    cmd.match(new RegExp(`(?:color|paint|make|turn|change|set|tint)\\s+(?:the\\s+)?(.+?)\\s+(?:to\\s+)?(${colorWords})(?:\\s|$)`, 'i')) ||
+    cmd.match(new RegExp(`(?:color|paint|make|turn|change|set|tint)\\s+(?:the\\s+)?(.+?)\\s+(${colorWords})`, 'i'));
+  if (colorMatch) {
+    const name = colorMatch[2].toLowerCase();
+    ops.push({ tool: 'change_color', input: { target: colorMatch[1].replace(/\b(to|the|a)\b/g, '').trim(), color: colorMap[name] } });
+  }
+
+  // ── Visibility ────────────────────────────────────────────────────────────────
+  const hideMatch = cmd.match(/(?:hide|invisible|conceal|turn\s+off)\s+(?:the\s+)?(.+)/i);
+  if (hideMatch) ops.push({ tool: 'toggle_visibility', input: { target: hideMatch[1].trim(), visible: false } });
+  const showMatch = cmd.match(/(?:show|reveal|unhide|make\s+visible|turn\s+on)\s+(?:the\s+)?(.+)/i);
+  if (showMatch) ops.push({ tool: 'toggle_visibility', input: { target: showMatch[1].trim(), visible: true } });
+
+  // ── Move ──────────────────────────────────────────────────────────────────────
+  const moveMatch = cmd.match(/(?:move|shift|push|pull|nudge|translate)\s+(?:the\s+)?(.+?)\s+(up|down|left|right|forward|backward|back)\s*(?:by\s+)?(\d*\.?\d+)?/i);
+  if (moveMatch) {
+    const dir = moveMatch[2].toLowerCase();
+    const amt = parseFloat(moveMatch[3] || '1');
+    const delta = { x: 0, y: 0, z: 0 };
+    if (dir === 'up')                    delta.y =  amt;
+    else if (dir === 'down')             delta.y = -amt;
+    else if (dir === 'right')            delta.x =  amt;
+    else if (dir === 'left')             delta.x = -amt;
+    else if (dir === 'forward')          delta.z = -amt;
+    else                                 delta.z =  amt; // backward/back
+    ops.push({ tool: 'move_objects', input: { target: moveMatch[1].trim(), ...delta } });
+  }
+
+  // ── Rotate ────────────────────────────────────────────────────────────────────
+  const rotMatch = cmd.match(/(?:rotate|turn|spin|tilt|angle)\s+(?:the\s+)?(.+?)\s+(?:by\s+)?(\d+)\s*(?:degrees?|°)?(?:\s+(?:around\s+)?(?:the\s+)?(x|y|z)(?:\s+axis)?)?/i);
+  if (rotMatch) {
+    ops.push({ tool: 'rotate_objects', input: {
+      target: rotMatch[1].trim(),
+      degrees: parseFloat(rotMatch[2]),
+      axis: (rotMatch[3] || 'y').toLowerCase(),
+    }});
+  }
+
+  // ── Delete ────────────────────────────────────────────────────────────────────
+  const delMatch = cmd.match(/(?:delete|remove|erase|destroy|get\s+rid\s+of)\s+(?:the\s+)?(.+)/i);
+  if (delMatch) ops.push({ tool: 'delete_objects', input: { target: delMatch[1].trim() } });
+
+  // ── Material ──────────────────────────────────────────────────────────────────
+  if (/\bwireframe\b/.test(cmd)) {
+    const t = cmd.replace(/^(?:make|set|turn|switch)\s+(?:the\s+)?/i, '').replace(/\bwireframe\b.*/i, '').trim() || 'all';
+    ops.push({ tool: 'change_material', input: { target: t, materialType: 'wireframe' } });
+  } else if (/\b(?:metallic?|shiny|glossy|chrome)\b/.test(cmd)) {
+    const t = cmd.replace(/^(?:make|set|turn)\s+(?:the\s+)?/i, '').replace(/\b(?:metallic?|shiny|glossy|chrome)\b.*/i, '').trim() || 'all';
+    ops.push({ tool: 'change_material', input: { target: t, metalness: 0.9, roughness: 0.1 } });
+  } else if (/\b(?:matte|rough|dull)\b/.test(cmd)) {
+    const t = cmd.replace(/^(?:make|set|turn)\s+(?:the\s+)?/i, '').replace(/\b(?:matte|rough|dull)\b.*/i, '').trim() || 'all';
+    ops.push({ tool: 'change_material', input: { target: t, metalness: 0.0, roughness: 0.9 } });
+  }
+
+  return ops;
 }
 
 // ── Main export ───────────────────────────────────────────────────────────────
@@ -389,15 +537,14 @@ export async function executeAgentCommand(command, { objects, groups }, keys = {
       throw new Error('Ollama agent timed out after 3 minutes.');
     }
     console.warn('Agent API call failed, falling back to regex parser:', err);
-    log('warn', 'API call failed, using regex fallback: ' + err.message);
+    log('warn', 'API call failed — using built-in fallback: ' + err.message);
   }
 
-  // Regex fallback — works without any API key or Ollama
   const ops = parseCommandFallback(command, objects, groups);
-  if (ops.length > 0) {
-    log('info', `Regex fallback matched ${ops.length} operation${ops.length !== 1 ? 's' : ''}`);
-  } else {
-    log('warn', 'No patterns matched the command');
-  }
+  log(ops.length > 0 ? 'info' : 'warn',
+    ops.length > 0
+      ? `Regex fallback matched ${ops.length} operation${ops.length !== 1 ? 's' : ''}`
+      : 'No patterns matched. Try rephrasing or check your API/Ollama connection.'
+  );
   return ops;
 }
