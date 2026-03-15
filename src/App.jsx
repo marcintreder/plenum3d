@@ -393,7 +393,7 @@ const App = () => {
         </Canvas>
 
         {/* Light Controls */}
-        <div className="absolute top-4 right-4 z-10" onClick={e => e.stopPropagation()}>
+        <div className="absolute top-4 right-4 z-10 flex flex-col items-end" onClick={e => e.stopPropagation()}>
           <button
             onClick={() => setLightOpen(v => !v)}
             className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] font-bold transition-all shadow-lg ${
