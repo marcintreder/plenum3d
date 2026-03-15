@@ -1,70 +1,92 @@
 import { buildPrimitiveMesh } from './utils/primitiveBuilder';
 import { laplacianSmooth } from './utils/MeshAnalysis';
 
-// ── System prompts ────────────────────────────────────────────────────────────
+// ── Stage 1: Spatial design architect ────────────────────────────────────────
+// This stage makes the model reason explicitly about layout before committing
+// to coordinates, which eliminates the "multiple trunks in random places" class
+// of errors.
 
-// Cloud models: describe object as composed primitives — much more reliable than raw vertices
-const SYSTEM_PROMPT_PARAMETRIC = `You are a 3D scene composer. When asked to create an object, describe it as a JSON structure of geometric primitives. You do NOT generate vertex coordinates — instead choose primitive shapes, sizes, and positions that together approximate the object.
+const DESIGN_SYSTEM_PROMPT = `You are a 3D spatial layout designer. Given an object description, plan its structure as a precise numbered list of parts.
 
-Return ONLY a valid JSON object:
-{
-  "name": "descriptive object name",
-  "parts": [
-    {
-      "label": "part name (e.g. trunk, wheel, roof)",
-      "type": "box" | "sphere" | "cylinder" | "cone",
-      "smooth": true | false,
-      "position": [x, y, z],
-      "size": [width, height, depth],
-      "color": "#RRGGBB"
-    }
-  ]
+Coordinate rules (STRICT — follow exactly):
+- Y axis is UP. Objects sit on the ground (Y=0 = bottom of object).
+- Vertically stacked parts (trees, lamps, rockets, towers, characters): ALL must have X=0 and Z=0. Only the Y value (height) changes.
+- Symmetric objects (cars, tables, chairs): centered at X=0, Z=0. Only offset on X or Z for side parts (e.g. wheels, legs).
+- position = center of the part, not the bottom edge.
+- Keep the whole object within a 4×4×4 unit cube.
+- Overlap adjacent parts by ~0.05–0.1 units so there are no gaps.
+
+Output exactly this format, one part per line, nothing else:
+[N]. [name] | [shape: box/sphere/cylinder/cone] | pos:[x,y,z] | size:[w,h,d] | color:[descriptive name] | smooth:[yes/no]
+
+smooth=yes for organic/curved/rounded surfaces; smooth=no for flat panels, sharp edges, mechanical parts.
+
+Example — pine tree:
+1. trunk | cylinder | pos:[0,0.5,0] | size:[0.3,1.0,0.3] | color:dark brown | smooth:no
+2. lower canopy | cone | pos:[0,1.8,0] | size:[1.4,1.6,1.4] | color:dark green | smooth:yes
+3. mid canopy | cone | pos:[0,2.6,0] | size:[1.1,1.4,1.1] | color:medium green | smooth:yes
+4. upper canopy | cone | pos:[0,3.2,0] | size:[0.8,1.2,0.8] | color:bright green | smooth:yes
+5. base roots | cylinder | pos:[0,0.05,0] | size:[0.55,0.1,0.55] | color:very dark brown | smooth:no
+
+Example — car:
+1. body | box | pos:[0,0.3,0] | size:[2.0,0.45,0.9] | color:red | smooth:yes
+2. cabin | box | pos:[0,0.72,0] | size:[1.1,0.42,0.8] | color:red | smooth:yes
+3. windshield | box | pos:[0.44,0.72,0] | size:[0.05,0.38,0.72] | color:light blue | smooth:no
+4. rear window | box | pos:[-0.44,0.72,0] | size:[0.05,0.38,0.72] | color:light blue | smooth:no
+5. front-left wheel | cylinder | pos:[0.65,0.1,0.52] | size:[0.32,0.14,0.32] | color:black | smooth:no
+6. front-right wheel | cylinder | pos:[0.65,0.1,-0.52] | size:[0.32,0.14,0.32] | color:black | smooth:no
+7. rear-left wheel | cylinder | pos:[-0.65,0.1,0.52] | size:[0.32,0.14,0.32] | color:black | smooth:no
+8. rear-right wheel | cylinder | pos:[-0.65,0.1,-0.52] | size:[0.32,0.14,0.32] | color:black | smooth:no
+9. headlights | box | pos:[1.02,0.3,0] | size:[0.04,0.12,0.55] | color:bright yellow | smooth:no
+
+Use 4–10 parts. Be precise. No extra text.`;
+
+// ── Stage 2: Convert design list to parametric JSON ───────────────────────────
+
+const COLOR_HEX = `brown=#78350F, dark brown=#3D2010, red=#C0392B, dark red=#8B1A1A, crimson=#DC143C,
+blue=#1D4ED8, dark blue=#1E3A5F, sky blue=#38BDF8, light blue=#AED6F1,
+green=#15803D, dark green=#2D6B1A, medium green=#2D8020, bright green=#37851F, lime=#65A30D,
+yellow=#EAB308, bright yellow=#FDE047, orange=#EA580C, gold=#D97706,
+white=#F9FAFB, gray=#6B7280, silver=#9CA3AF, black=#111111, dark gray=#374151,
+beige=#D2B48C, tan=#C4A47C, cream=#FEF3C7, pink=#F472B6, purple=#7C3AED`;
+
+function buildFromDesignPrompt(design) {
+  return `Convert this 3D part list into a JSON structure.
+
+Return ONLY a valid JSON object — no markdown, no code fences, no explanation:
+{"name":"descriptive name","parts":[{"label":"part name","type":"box|sphere|cylinder|cone","smooth":true|false,"position":[x,y,z],"size":[w,h,d],"color":"#RRGGBB"}]}
+
+Color name → hex reference: ${COLOR_HEX}
+
+Size conventions:
+- box: [width, height, depth]
+- sphere: [diameter, diameter, diameter]
+- cylinder: [diameter, height, diameter]
+- cone: [base_diameter, height, base_diameter] (apex points up)
+
+Part list to convert:
+${design}`;
 }
 
-Rules:
-- Use 4–12 parts. More parts = more detail and realism. Don't hesitate to use 8–12 for complex objects.
-- box: rectangular block. size = [width, height, depth].
-- sphere: ball. size = [diameter, diameter, diameter].
-- cylinder: upright tube. size = [diameter, height, diameter].
-- cone: upright cone, point at top. size = [base_diameter, height, base_diameter].
-- smooth: set true for organic/curved parts (body panels, canopies, cushions), false for hard-edged parts (windows, legs, panels).
-- position: center of part. Y axis is up. Keep the whole object within a 4×4×4 unit box centered at origin.
-- Overlap parts slightly so there are no gaps between connected pieces.
-- color: realistic hex color per part. Use varied, accurate colors — different parts should usually have different colors.
-- No markdown, no explanation — only the raw JSON object.
+// ── JSON extractor (robust — handles markdown fences, wrapped objects) ────────
 
-Examples:
-- Tree → {"name":"Pine Tree","parts":[{"label":"trunk","type":"cylinder","smooth":false,"position":[0,0.5,0],"size":[0.3,1,0.3],"color":"#5C3317"},{"label":"lower canopy","type":"cone","smooth":true,"position":[0,1.8,0],"size":[1.4,1.6,1.4],"color":"#2D6B1A"},{"label":"mid canopy","type":"cone","smooth":true,"position":[0,2.6,0],"size":[1.1,1.4,1.1],"color":"#2D8020"},{"label":"upper canopy","type":"cone","smooth":true,"position":[0,3.3,0],"size":[0.7,1.2,0.7],"color":"#37851F"},{"label":"roots","type":"cylinder","smooth":false,"position":[0,0.0,0],"size":[0.5,0.15,0.5],"color":"#3D2010"}]}
-- Car → {"name":"Car","parts":[{"label":"body","type":"box","smooth":true,"position":[0,0.35,0],"size":[2,0.5,1],"color":"#C0392B"},{"label":"cabin","type":"box","smooth":true,"position":[0,0.85,0.1],"size":[1.2,0.5,0.85],"color":"#C0392B"},{"label":"windshield","type":"box","smooth":false,"position":[0.45,0.85,0.08],"size":[0.05,0.4,0.75],"color":"#AED6F1"},{"label":"front wheel L","type":"cylinder","smooth":false,"position":[0.7,0.1,0.55],"size":[0.35,0.15,0.35],"color":"#111111"},{"label":"front wheel R","type":"cylinder","smooth":false,"position":[0.7,0.1,-0.55],"size":[0.35,0.15,0.35],"color":"#111111"},{"label":"rear wheel L","type":"cylinder","smooth":false,"position":[-0.7,0.1,0.55],"size":[0.35,0.15,0.35],"color":"#111111"},{"label":"rear wheel R","type":"cylinder","smooth":false,"position":[-0.7,0.1,-0.55],"size":[0.35,0.15,0.35],"color":"#111111"},{"label":"headlights","type":"box","smooth":false,"position":[1.01,0.35,0],"size":[0.05,0.15,0.6],"color":"#F9E400"}]}`;
+function extractJSON(text) {
+  const t = (text || '').trim();
+  try { return JSON.parse(t); } catch {}
+  const fenced = t.replace(/```(?:json)?\s*([\s\S]*?)```/g, '$1').trim();
+  try { return JSON.parse(fenced); } catch {}
+  const arrIdx = fenced.indexOf('[');
+  const objIdx = fenced.indexOf('{');
+  if (objIdx !== -1 && (arrIdx === -1 || objIdx < arrIdx)) {
+    try { return JSON.parse(fenced.slice(objIdx, fenced.lastIndexOf('}') + 1)); } catch {}
+  }
+  if (arrIdx !== -1) {
+    try { return JSON.parse(fenced.slice(arrIdx, fenced.lastIndexOf(']') + 1)); } catch {}
+  }
+  return null;
+}
 
-// Ollama: simplified parametric (shorter = faster for local models)
-const OLLAMA_SYSTEM_PROMPT_PARAMETRIC = `You are a 3D model builder. Return ONLY a JSON object with primitive parts.
-
-Format:
-{"name":"object name","parts":[{"label":"part","type":"box"|"sphere"|"cylinder"|"cone","smooth":true|false,"position":[x,y,z],"size":[w,h,d],"color":"#hex"}]}
-
-Use 4–8 parts for detail. Keep within 4 units of origin. Y is up.
-- box=[width,height,depth], sphere=[diam,diam,diam], cylinder=[diam,height,diam], cone=[base_diam,height,base_diam]
-- smooth=true for organic/curved parts, false for hard-edged parts
-- Realistic colors per part. No explanation, only JSON.`;
-
-// Fallback raw-vertex prompts (used if model ignores parametric format)
-const SYSTEM_PROMPT_RAW = `You are an expert 3D triangle mesh generator. Create a 3D object as a clean triangle mesh.
-Return ONLY a valid JSON object:
-- "vertices": flat array [x,y,z, x,y,z, ...]. Fit within a 2×2×2 unit cube at origin. Y up.
-- "indices": flat array — every 3 ints form one triangle. Every index must be >= 0 and < (vertices.length/3). Counter-clockwise winding.
-- "color": realistic hex color for this object
-- "material": "standard", "physical", or "wireframe"
-40–150 triangles. No degenerate triangles. Only the JSON object.`;
-
-const OLLAMA_SYSTEM_PROMPT_RAW = `You are a 3D model generator. Return ONLY valid JSON:
-- "vertices": flat [x,y,z,...] array, under 60 vertices, fit in 2-unit cube
-- "indices": flat int array, groups of 3 = triangles, every index < vertices.length/3
-- "color": hex color
-- "material": "standard"
-No explanation, only JSON.`;
-
-// ── Prompt builder ────────────────────────────────────────────────────────────
+// ── Prompt builder (single-stage fallback) ────────────────────────────────────
 
 function buildPrompt(prompt, hasImage) {
   return `Create a 3D model for: ${prompt}.${hasImage ? ' Model it closely after the reference image provided.' : ''}`;
@@ -72,7 +94,6 @@ function buildPrompt(prompt, hasImage) {
 
 // ── Geometry from LLM parts ───────────────────────────────────────────────────
 
-// Smoothing passes per type: spheres and cones get extra rounding
 const SMOOTH_ITERATIONS = { sphere: 3, cone: 2, cylinder: 1, box: 0 };
 
 function formatPartsResult(data) {
@@ -85,34 +106,30 @@ function formatPartsResult(data) {
       let { vertices, indices } = buildPrimitiveMesh(type, size);
       if (!vertices.length || !indices.length) return null;
 
-      // Post-build smoothing: apply if explicitly requested OR for naturally round shapes
       const shouldSmooth = part.smooth === true || (part.smooth !== false && SMOOTH_ITERATIONS[type] > 0);
       if (shouldSmooth) {
-        const iters = SMOOTH_ITERATIONS[type] || 1;
-        vertices = laplacianSmooth(vertices, indices, iters, 0.4);
+        vertices = laplacianSmooth(vertices, indices, SMOOTH_ITERATIONS[type] || 1, 0.4);
       }
 
       return {
-        label:    part.label || type,
+        label:       part.label || type,
         vertices,
         indices,
-        color:    part.color || '#7C3AED',
-        materialType: 'physical',
-        position: (part.position || [0, 0, 0]).map(Number),
+        color:       part.color || '#7C3AED',
+        materialType:'physical',
+        position:    (part.position || [0, 0, 0]).map(Number),
       };
     })
     .filter(Boolean);
   return { isParts: true, name: data.name || 'Generated Object', parts };
 }
 
-// Detect whether the parsed response is parametric or raw-vertex and route accordingly
 function interpretResponse(parsed, log) {
   if (parsed && Array.isArray(parsed.parts) && parsed.parts.length > 0) {
     const result = formatPartsResult(parsed);
     log('success', `Built ${result.parts.length}-part model: ${result.parts.map(p => p.label).join(', ')}`);
     return result;
   }
-  // Fallback: model returned raw vertices
   if (parsed && (parsed.vertices || parsed.indices)) {
     log('info', 'Response used raw-vertex format — parsing geometry…');
     return { isParts: false, ...formatResult(parsed) };
@@ -120,85 +137,150 @@ function interpretResponse(parsed, log) {
   throw new Error('Response did not contain parts or vertices.');
 }
 
-// ── Provider functions ────────────────────────────────────────────────────────
+// ── Anthropic: two-stage (design → build) ────────────────────────────────────
 
 async function generateWithAnthropic(prompt, referenceImage, apiKey, log) {
-  log('info', 'Sending request to Anthropic (claude-opus-4-6)…');
-  const content = [];
-  if (referenceImage) {
-    const [header, data] = referenceImage.split(',');
-    const mediaType = header.match(/:(.*?);/)?.[1] || 'image/jpeg';
-    content.push({ type: 'image', source: { type: 'base64', media_type: mediaType, data } });
-  }
-  content.push({ type: 'text', text: buildPrompt(prompt, !!referenceImage) });
+  const headers = { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' };
 
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+  // Stage 1 — design
+  log('info', 'Stage 1/2 — Designing layout (Anthropic)…');
+  const designContent = [];
+  if (referenceImage) {
+    const [header, imgData] = referenceImage.split(',');
+    const mediaType = header.match(/:(.*?);/)?.[1] || 'image/jpeg';
+    designContent.push({ type: 'image', source: { type: 'base64', media_type: mediaType, data: imgData } });
+  }
+  designContent.push({ type: 'text', text: `Design a 3D model of: ${prompt}` });
+
+  const designRes = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST', headers,
+    body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1024, system: DESIGN_SYSTEM_PROMPT, messages: [{ role: 'user', content: designContent }] }),
+  });
+  if (!designRes.ok) throw new Error(`Anthropic stage-1 error: ${designRes.statusText}`);
+  const designData = await designRes.json();
+  const design = designData.content[0].text;
+  log('info', `Layout designed (${design.split('\n').filter(l => l.trim()).length} parts) — building geometry…`);
+
+  // Stage 2 — build JSON
+  const buildRes = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST', headers,
     body: JSON.stringify({
-      model: 'claude-opus-4-6',
+      model: 'claude-sonnet-4-6',
       max_tokens: 4096,
-      system: SYSTEM_PROMPT_PARAMETRIC,
-      messages: [{ role: 'user', content }],
+      system: 'You output only valid JSON objects. No markdown, no code fences, no explanation.',
+      messages: [{ role: 'user', content: buildFromDesignPrompt(design) }],
     }),
   });
-  if (!res.ok) throw new Error(`Anthropic error: ${res.statusText}`);
-  log('info', 'Response received — parsing…');
-  const data = await res.json();
-  return interpretResponse(JSON.parse(data.content[0].text), log);
+  if (!buildRes.ok) throw new Error(`Anthropic stage-2 error: ${buildRes.statusText}`);
+  const buildData = await buildRes.json();
+  const parsed = extractJSON(buildData.content[0].text);
+  if (!parsed) throw new Error('Anthropic stage-2 returned unparseable JSON');
+  return interpretResponse(parsed, log);
 }
+
+// ── OpenAI: two-stage ─────────────────────────────────────────────────────────
 
 async function generateWithOpenAI(prompt, referenceImage, apiKey, log) {
-  const model = referenceImage ? 'gpt-4o' : 'gpt-4o-mini';
-  log('info', `Sending request to OpenAI (${model})…`);
-  const messages = [{ role: 'system', content: SYSTEM_PROMPT_PARAMETRIC }];
-  const userContent = [];
-  if (referenceImage) userContent.push({ type: 'image_url', image_url: { url: referenceImage } });
-  userContent.push({ type: 'text', text: buildPrompt(prompt, !!referenceImage) });
-  messages.push({ role: 'user', content: userContent });
+  const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` };
 
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({ model, messages, response_format: { type: 'json_object' } }),
+  // Stage 1 — design
+  log('info', 'Stage 1/2 — Designing layout (OpenAI)…');
+  const designUserContent = [];
+  if (referenceImage) designUserContent.push({ type: 'image_url', image_url: { url: referenceImage } });
+  designUserContent.push({ type: 'text', text: `Design a 3D model of: ${prompt}` });
+
+  const designRes = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST', headers,
+    body: JSON.stringify({
+      model: referenceImage ? 'gpt-4o' : 'gpt-4o-mini',
+      max_tokens: 1024,
+      messages: [{ role: 'system', content: DESIGN_SYSTEM_PROMPT }, { role: 'user', content: designUserContent }],
+    }),
   });
-  if (!res.ok) throw new Error(`OpenAI error: ${res.statusText}`);
-  log('info', 'Response received — parsing…');
-  const data = await res.json();
-  return interpretResponse(JSON.parse(data.choices[0].message.content), log);
+  if (!designRes.ok) throw new Error(`OpenAI stage-1 error: ${designRes.statusText}`);
+  const designData = await designRes.json();
+  const design = designData.choices[0].message.content;
+  log('info', `Layout designed — building geometry…`);
+
+  // Stage 2 — build JSON
+  const buildRes = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST', headers,
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      max_tokens: 4096,
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: 'You output only valid JSON objects.' },
+        { role: 'user', content: buildFromDesignPrompt(design) },
+      ],
+    }),
+  });
+  if (!buildRes.ok) throw new Error(`OpenAI stage-2 error: ${buildRes.statusText}`);
+  const buildData = await buildRes.json();
+  const parsed = extractJSON(buildData.choices[0].message.content);
+  if (!parsed) throw new Error('OpenAI stage-2 returned unparseable JSON');
+  return interpretResponse(parsed, log);
 }
+
+// ── Gemini: two-stage ─────────────────────────────────────────────────────────
 
 async function generateWithGemini(prompt, referenceImage, apiKey, log) {
-  log('info', 'Sending request to Gemini (gemini-1.5-flash)…');
-  const parts = [];
-  if (referenceImage) {
-    const [header, data] = referenceImage.split(',');
-    const mimeType = header.match(/:(.*?);/)?.[1] || 'image/jpeg';
-    parts.push({ inline_data: { mime_type: mimeType, data } });
-  }
-  parts.push({ text: buildPrompt(prompt, !!referenceImage) });
-
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-    {
+  const call = (model, sysText, userParts, jsonMode = false) => {
+    const body = {
+      system_instruction: { parts: [{ text: sysText }] },
+      contents: [{ parts: userParts }],
+    };
+    if (jsonMode) body.generationConfig = { response_mime_type: 'application/json' };
+    return fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: SYSTEM_PROMPT_PARAMETRIC }] },
-        contents: [{ parts }],
-        generationConfig: { response_mime_type: 'application/json' },
-      }),
-    }
-  );
-  if (!res.ok) throw new Error(`Gemini error: ${res.statusText}`);
-  log('info', 'Response received — parsing…');
-  const data = await res.json();
-  return interpretResponse(JSON.parse(data.candidates[0].content.parts[0].text), log);
+      body: JSON.stringify(body),
+    });
+  };
+
+  // Stage 1 — design
+  log('info', 'Stage 1/2 — Designing layout (Gemini)…');
+  const designParts = [];
+  if (referenceImage) {
+    const [header, imgData] = referenceImage.split(',');
+    designParts.push({ inline_data: { mime_type: header.match(/:(.*?);/)?.[1] || 'image/jpeg', data: imgData } });
+  }
+  designParts.push({ text: `Design a 3D model of: ${prompt}` });
+
+  const designRes = await call('gemini-1.5-flash', DESIGN_SYSTEM_PROMPT, designParts);
+  if (!designRes.ok) throw new Error(`Gemini stage-1 error: ${designRes.statusText}`);
+  const designData = await designRes.json();
+  const design = designData.candidates[0].content.parts[0].text;
+  log('info', 'Layout designed — building geometry…');
+
+  // Stage 2 — build JSON
+  const buildRes = await call('gemini-1.5-flash', 'Output only valid JSON. No markdown.', [{ text: buildFromDesignPrompt(design) }], true);
+  if (!buildRes.ok) throw new Error(`Gemini stage-2 error: ${buildRes.statusText}`);
+  const buildData = await buildRes.json();
+  const parsed = extractJSON(buildData.candidates[0].content.parts[0].text);
+  if (!parsed) throw new Error('Gemini stage-2 returned unparseable JSON');
+  return interpretResponse(parsed, log);
 }
 
+// ── Ollama: single-stage with robust JSON extraction ─────────────────────────
+
+const OLLAMA_SYSTEM_PROMPT_PARAMETRIC = `You are a 3D model builder. Return ONLY a JSON object.
+
+CRITICAL coordinate rules:
+- Y axis is UP. Objects sit on Y=0.
+- Vertically stacked parts (trees, lamps, etc.): ALL have X=0, Z=0. Only Y changes.
+- position = center of part.
+
+Format:
+{"name":"object name","parts":[{"label":"part","type":"box|sphere|cylinder|cone","smooth":true|false,"position":[x,y,z],"size":[w,h,d],"color":"#hex"}]}
+
+Size: box=[w,h,d], sphere=[diam,diam,diam], cylinder=[diam,height,diam], cone=[base_diam,height,base_diam]
+Use 4–8 parts. Realistic colors. No explanation, only JSON.
+
+Example tree: {"name":"Pine Tree","parts":[{"label":"trunk","type":"cylinder","smooth":false,"position":[0,0.5,0],"size":[0.3,1.0,0.3],"color":"#5C3317"},{"label":"lower canopy","type":"cone","smooth":true,"position":[0,1.8,0],"size":[1.4,1.6,1.4],"color":"#2D6B1A"},{"label":"upper canopy","type":"cone","smooth":true,"position":[0,2.8,0],"size":[0.9,1.3,0.9],"color":"#37851F"}]}`;
+
 async function generateWithOllama(prompt, referenceImage, ollamaUrl, modelOverride, log) {
-  const defaultModel = referenceImage ? 'llava' : 'mistral';
-  const modelName = modelOverride || defaultModel;
+  const modelName = modelOverride || (referenceImage ? 'llava' : 'mistral');
   log('info', `Sending request to Ollama (${modelName})…`);
   log('warn', 'Local models can take 1–3 minutes. Console will update when done.');
 
@@ -211,7 +293,6 @@ async function generateWithOllama(prompt, referenceImage, ollamaUrl, modelOverri
       prompt: buildPrompt(prompt, !!referenceImage),
       system: OLLAMA_SYSTEM_PROMPT_PARAMETRIC,
       stream: false,
-      format: 'json',
     };
     if (referenceImage) body.images = [referenceImage.split(',')[1] || referenceImage];
 
@@ -224,7 +305,8 @@ async function generateWithOllama(prompt, referenceImage, ollamaUrl, modelOverri
     if (!res.ok) throw new Error(`Ollama error: ${res.statusText}`);
     log('info', 'Ollama response received — parsing…');
     const data = await res.json();
-    const parsed = typeof data.response === 'string' ? JSON.parse(data.response) : data.response;
+    const parsed = extractJSON(data.response || '');
+    if (!parsed) throw new Error('Ollama returned unparseable response');
     return interpretResponse(parsed, log);
   } finally {
     clearTimeout(timeout);
@@ -256,11 +338,9 @@ export const generate3DModel = async (
     else
       result = await generateWithOllama(prompt, referenceImage, ollamaUrl, ollamaGenerateModel, log);
 
-    if (result.isParts) {
-      log('success', `Done — ${result.parts.length} parts assembled`);
-    } else {
-      log('success', `Done — ${result.vertices.length} vertices, ${result.indices.length} indices`);
-    }
+    log('success', result.isParts
+      ? `Done — ${result.parts.length} parts assembled`
+      : `Done — ${result.vertices.length} vertices`);
     return result;
   } catch (error) {
     if (error.name === 'AbortError') {
@@ -268,19 +348,17 @@ export const generate3DModel = async (
       throw new Error('Ollama timed out after 3 minutes. Try a simpler prompt or a faster model.');
     }
     log('warn', 'Generation failed, using fallback shape: ' + error.message);
-    console.error('Generation failed, using fallback:', error);
+    console.error('Generation failed:', error);
     return formatResult({
       vertices: [0,1,0, -1,0,-1, 1,0,-1, 1,0,1, -1,0,1],
       indices:  [0,2,1, 0,3,2, 0,4,3, 0,1,4, 1,2,3, 1,3,4],
-      color: '#7C3AED',
-      material: 'standard',
+      color: '#7C3AED', material: 'standard',
     });
   }
 };
 
-// ── Geometry helpers ──────────────────────────────────────────────────────────
+// ── Raw vertex fallback (validate + auto-scale) ───────────────────────────────
 
-// Raw vertex fallback: validate indices, auto-scale to fit 2-unit cube
 function formatResult(result) {
   const raw = result.vertices || [];
   let verts;
@@ -294,7 +372,6 @@ function formatResult(result) {
     }
   }
 
-  // Auto-scale: normalise so the longest axis fits in 2 units
   if (verts.length > 0) {
     let maxExtent = 0;
     for (const v of verts) maxExtent = Math.max(maxExtent, Math.abs(v[0]), Math.abs(v[1]), Math.abs(v[2]));
@@ -304,7 +381,6 @@ function formatResult(result) {
     }
   }
 
-  // Validate indices: drop out-of-bounds and degenerate triangles
   const vCount = verts.length;
   const rawIdx = result.indices || [];
   const cleanIdx = [];
