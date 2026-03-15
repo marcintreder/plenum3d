@@ -10,6 +10,7 @@ const useStore = create((set, get) => ({
   history: [JSON.parse(JSON.stringify(initialObjects))],
   historyIndex: 0,
   selectedObjectId: null,
+  selectedObjectIds: [],      // multi-object selection
   selectedJointIndex: null,   // = selectedVertexIndices[0] ?? null (kept for Inspector compat)
   selectedVertexIndices: [],  // multi-select array
   editMode: 'object',
@@ -70,10 +71,34 @@ const useStore = create((set, get) => ({
 
   setSelectedObjectId: (id) => set({
     selectedObjectId: id,
+    selectedObjectIds: id ? [id] : [],
     selectedJointIndex: null,
     selectedVertexIndices: [],
     editMode: id ? get().editMode : 'object',
   }),
+
+  toggleSelectedObjectId: (id) => {
+    const { selectedObjectIds, selectedObjectId } = get();
+    const next = selectedObjectIds.includes(id)
+      ? selectedObjectIds.filter(i => i !== id)
+      : [...selectedObjectIds, id];
+    set({
+      selectedObjectIds: next,
+      selectedObjectId: next[next.length - 1] ?? null,
+      selectedJointIndex: null,
+      selectedVertexIndices: [],
+    });
+  },
+
+  // Batch-update a property across all selected objects
+  updateSelectedObjects: (updates) => {
+    const { selectedObjectIds } = get();
+    set(state => ({
+      objects: state.objects.map(obj =>
+        selectedObjectIds.includes(obj.id) ? { ...obj, ...updates } : obj
+      ),
+    }));
+  },
   
   setSelectedJointIndex: (index) => set({ selectedJointIndex: index }),
   setGenerating: (isGenerating) => set({ isGenerating }),

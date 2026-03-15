@@ -9,16 +9,19 @@ const EditableMesh = ({ object }) => {
   const meshRef = useRef();
   const geomRef = useRef();
 
-  const selectedObjectId      = useStore(s => s.selectedObjectId);
-  const editMode              = useStore(s => s.editMode);
-  const setEditMode           = useStore(s => s.setEditMode);
-  const updateObjectTransform = useStore(s => s.updateObjectTransform);
-  const setSelectedObjectId   = useStore(s => s.setSelectedObjectId);
-  const setSelectedJointIndex = useStore(s => s.setSelectedJointIndex);
+  const selectedObjectId       = useStore(s => s.selectedObjectId);
+  const selectedObjectIds      = useStore(s => s.selectedObjectIds);
+  const editMode               = useStore(s => s.editMode);
+  const setEditMode            = useStore(s => s.setEditMode);
+  const updateObjectTransform  = useStore(s => s.updateObjectTransform);
+  const setSelectedObjectId    = useStore(s => s.setSelectedObjectId);
+  const toggleSelectedObjectId = useStore(s => s.toggleSelectedObjectId);
+  const setSelectedJointIndex  = useStore(s => s.setSelectedJointIndex);
 
   const [isDragging, setIsDragging] = useState(false);
-  const isSelected = selectedObjectId === object.id;
-  const isVertexMode = isSelected && editMode === 'vertex';
+  const isSelected      = selectedObjectIds.includes(object.id);
+  const isPrimary       = selectedObjectId === object.id;
+  const isVertexMode    = isPrimary && editMode === 'vertex';
 
   // Flat buffers for BufferGeometry
   const flatVertices = useMemo(() => {
@@ -36,16 +39,6 @@ const EditableMesh = ({ object }) => {
     if (geomRef.current) geomRef.current.computeVertexNormals();
   }, [object.vertices, object.indices]);
 
-  // Edge geometry for wireframe overlay in vertex mode
-  const edgePositions = useMemo(() => {
-    if (!isVertexMode || flatVertices.length === 0 || flatIndices.length === 0) return null;
-    const tempGeom = new THREE.BufferGeometry();
-    tempGeom.setAttribute('position', new THREE.BufferAttribute(flatVertices.slice(), 3));
-    tempGeom.setIndex(new THREE.BufferAttribute(flatIndices.slice(), 1));
-    const edges = new THREE.EdgesGeometry(tempGeom);
-    tempGeom.dispose();
-    return edges;
-  }, [isVertexMode, flatVertices, flatIndices]);
 
   const Material = useMemo(() => {
     const props = {
@@ -60,11 +53,23 @@ const EditableMesh = ({ object }) => {
     return <meshStandardMaterial {...props} />;
   }, [object.color, object.materialType, object.metalness, object.roughness, isVertexMode]);
 
+  // Outline/highlight for multi-selected (non-primary) objects
+  const SelectionOutline = isSelected && !isPrimary ? (
+    <lineSegments renderOrder={10}>
+      <edgesGeometry args={[]} />
+      <lineBasicMaterial color="#7C3AED" depthTest={false} transparent opacity={0.8} />
+    </lineSegments>
+  ) : null;
+
   if (!object.visible) return null;
 
   const handleMeshClick = (e) => {
     e.stopPropagation();
-    setSelectedObjectId(object.id);
+    if (e.shiftKey) {
+      toggleSelectedObjectId(object.id);
+    } else {
+      setSelectedObjectId(object.id);
+    }
   };
 
   const handleDoubleClick = (e) => {
@@ -106,14 +111,7 @@ const EditableMesh = ({ object }) => {
         {/* The mesh itself (slightly transparent so vertices are visible) */}
         {meshElement}
 
-        {/* Cyan edge wireframe so topology is visible */}
-        {edgePositions && (
-          <lineSegments geometry={edgePositions} renderOrder={1}>
-            <lineBasicMaterial color="#00e5ff" transparent opacity={0.35} depthTest={false} />
-          </lineSegments>
-        )}
-
-        {/* Draggable vertex dots */}
+        {/* Draggable vertex dots + edge wireframe (owned by VertexHandles) */}
         <VertexHandles object={object} />
       </group>
     );

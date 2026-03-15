@@ -54,8 +54,7 @@ const App = () => {
     if (e.key === "Enter" && prompt.trim() && !isGenerating) {
       setGenerating(true);
       try {
-        const ollamaUrl = keys["Ollama URL"] || "http://localhost:11434";
-        const newGeometry = await generate3DModel(prompt, refImage, ollamaUrl);
+        const newGeometry = await generate3DModel(prompt, refImage, keys);
         setGeometry(newGeometry);
         setPrompt("");
         setRefImage(null);
