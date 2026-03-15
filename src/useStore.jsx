@@ -101,8 +101,7 @@ const useStore = create((set, get) => ({
   }),
 
   addPrimitive: (type) => {
-    const { saveHistory, objects } = get();
-    saveHistory();
+    const { objects } = get();
     const id = Math.random().toString(36).substr(2, 9);
     let vertices = [];
     let indices = [];
@@ -180,11 +179,12 @@ const useStore = create((set, get) => ({
       scale: [1,1,1]
     };
 
-    set({ 
+    set({
       objects: [...objects, newObj],
       selectedObjectId: id,
       selectedJointIndex: null
     });
+    get().saveHistory();
   },
 
   setGroup: (groupId) => set((state) => ({ 
