@@ -29,6 +29,7 @@ const VertexHandles = ({ object }) => {
   const selectedVertexIndices    = useStore(s => s.selectedVertexIndices);
   const setSelectedVertexIndices = useStore(s => s.setSelectedVertexIndices);
   const setOrbitEnabled          = useStore(s => s.setOrbitEnabled);
+  const subdivideEdge            = useStore(s => s.subdivideEdge);
 
   const [hoveredIndex,       setHoveredIndex]       = useState(null);
   const [hoveredEdge,        setHoveredEdge]         = useState(null);  // [v1,v2]
@@ -40,6 +41,7 @@ const VertexHandles = ({ object }) => {
   const vertexHitRef   = useRef(false);
   const hoveredIdxRef  = useRef(null);  // mirrors hoveredIndex for non-reactive callbacks
   const hoveredEdgeRef = useRef(null);  // mirrors hoveredEdge for non-reactive callbacks
+  const altRef         = useRef(false); // mirrors Alt key state
 
   // ── World transform ────────────────────────────────────────────────────────
   const worldMatrix = useMemo(() => {
@@ -116,6 +118,15 @@ const VertexHandles = ({ object }) => {
     return { x: (v.x + 1) / 2 * r.width, y: (1 - v.y) / 2 * r.height };
   }, [camera, gl]);
 
+  // ── Alt key tracking (for edge subdivide) ─────────────────────────────────
+  useEffect(() => {
+    const onDown = (e) => { if (e.key === 'Alt') altRef.current = true; };
+    const onUp   = (e) => { if (e.key === 'Alt') altRef.current = false; };
+    window.addEventListener('keydown', onDown);
+    window.addEventListener('keyup',   onUp);
+    return () => { window.removeEventListener('keydown', onDown); window.removeEventListener('keyup', onUp); };
+  }, []);
+
   // ── Edge hover detection (mousemove) ──────────────────────────────────────
   useEffect(() => {
     const el = gl.domElement;
@@ -140,7 +151,7 @@ const VertexHandles = ({ object }) => {
       if (!same) {
         hoveredEdgeRef.current = nearest;
         setHoveredEdge(nearest ? [...nearest] : null);
-        el.style.cursor = nearest ? 'pointer' : 'default';
+        el.style.cursor = nearest ? (altRef.current ? 'copy' : 'pointer') : 'default';
       }
     };
     el.addEventListener('mousemove', onMouseMove);
@@ -239,13 +250,19 @@ const VertexHandles = ({ object }) => {
       setTimeout(() => {
         if (vertexHitRef.current) { vertexHitRef.current = false; return; }
 
-        // Edge was hovered → click selects both endpoints
+        // Edge was hovered
         const edge = hoveredEdgeRef.current;
         if (edge) {
-          const current = useStore.getState().selectedVertexIndices;
-          setSelectedVertexIndices(
-            e.shiftKey ? [...new Set([...current, ...edge])] : [...edge]
-          );
+          if (e.altKey) {
+            // Alt+click edge → subdivide (add midpoint vertex)
+            saveHistory();
+            subdivideEdge(object.id, edge[0], edge[1]);
+          } else {
+            const current = useStore.getState().selectedVertexIndices;
+            setSelectedVertexIndices(
+              e.shiftKey ? [...new Set([...current, ...edge])] : [...edge]
+            );
+          }
           return;
         }
 

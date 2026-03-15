@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { generateF1 } from './f1Model';
+import { bevelSelectedVertices, subdivideEdge as meshSubdivideEdge, dissolveVertex as meshDissolveVertex } from './utils/MeshAnalysis';
 
 const initialObjects = generateF1();
 
@@ -238,6 +239,43 @@ const useStore = create((set, get) => ({
   unsetGroup: () => set((state) => ({ 
     objects: state.objects.map(o => o.id === state.selectedObjectId ? {...o, groupId: null} : o) 
   })), 
+  applyBevel: (objectId, selectedIndices, amount) => set(state => {
+    const obj = state.objects.find(o => o.id === objectId);
+    if (!obj) return {};
+    const result = bevelSelectedVertices(obj.vertices, obj.indices, selectedIndices, amount);
+    return {
+      objects: state.objects.map(o => o.id === objectId ? { ...o, ...result } : o),
+      selectedVertexIndices: [],
+      selectedJointIndex: null,
+    };
+  }),
+
+  subdivideEdge: (objectId, v1, v2) => set(state => {
+    const obj = state.objects.find(o => o.id === objectId);
+    if (!obj) return {};
+    const result = meshSubdivideEdge(obj.vertices, obj.indices, v1, v2);
+    return {
+      objects: state.objects.map(o => o.id === objectId ? { ...o, vertices: result.vertices, indices: result.indices } : o),
+      selectedVertexIndices: [result.newVertexIndex],
+      selectedJointIndex: result.newVertexIndex,
+    };
+  }),
+
+  dissolveVertex: (objectId, vi) => set(state => {
+    const obj = state.objects.find(o => o.id === objectId);
+    if (!obj) return {};
+    const result = meshDissolveVertex(obj.vertices, obj.indices, vi);
+    // Shift selected indices that are above the removed vertex
+    const shiftIdx = i => i === vi ? null : i > vi ? i - 1 : i;
+    const newSelected = state.selectedVertexIndices
+      .map(shiftIdx).filter(i => i !== null);
+    return {
+      objects: state.objects.map(o => o.id === objectId ? { ...o, vertices: result.vertices, indices: result.indices } : o),
+      selectedVertexIndices: newSelected,
+      selectedJointIndex: newSelected[0] ?? null,
+    };
+  }),
+
   deleteObject: (id) => {
     const { saveHistory, objects, selectedObjectId } = get();
     saveHistory();

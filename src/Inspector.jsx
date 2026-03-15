@@ -22,13 +22,17 @@ const Inspector = () => {
     editMode,
     setEditMode,
     saveHistory,
-    setGeometry
+    setGeometry,
+    applyBevel,
+    subdivideEdge,
+    dissolveVertex,
   } = useStore();
 
   const multiObjectSelected = selectedObjectIds.length > 1;
 
   const [isOrtho, setIsOrtho] = useState(false);
   const [deltaValues, setDeltaValues] = useState({ 0: '', 1: '', 2: '' });
+  const [bevelAmount, setBevelAmount] = useState(0.2);
 
   const selectedObject = objects.find(o => o?.id === selectedObjectId);
   const selectedJoint  = selectedObject && selectedJointIndex !== null
@@ -433,10 +437,57 @@ const Inspector = () => {
                 ) : (
                   <div className="p-4 bg-[#222]/10 border border-dashed border-[#333] rounded-xl text-center">
                     <p className="text-[9px] text-gray-600 italic leading-relaxed">
-                      Click a vertex handle to select it.<br/>
+                      Click a vertex to select it.<br/>
                       Shift+click to multi-select.<br/>
-                      Drag to reposition.
+                      <span className="text-[#06B6D4]/60">Alt+click an edge to add a vertex.</span>
                     </p>
+                  </div>
+                )}
+
+                {/* Bevel & Dissolve */}
+                {selectedVertexIndices.length > 0 && (
+                  <div className="space-y-3 pt-3 border-t border-[#333]/60">
+                    <div className="space-y-2">
+                      <label className="text-[9px] text-gray-500 uppercase font-bold tracking-widest">
+                        Bevel corners
+                      </label>
+                      <p className="text-[8px] text-gray-600 italic">
+                        Adds new geometry to round the selected corner(s).
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="range" min="0.02" max="0.48" step="0.01"
+                          value={bevelAmount}
+                          onChange={e => setBevelAmount(parseFloat(e.target.value))}
+                          className="flex-1 accent-[#06B6D4]"
+                        />
+                        <span className="text-[9px] font-mono text-[#06B6D4] w-8 text-right">
+                          {bevelAmount.toFixed(2)}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (!selectedObject || !selectedVertexIndices.length) return;
+                          saveHistory();
+                          applyBevel(selectedObject.id, selectedVertexIndices, bevelAmount);
+                        }}
+                        className="w-full bg-[#0F0F0F] border border-[#06B6D4]/30 hover:border-[#06B6D4] p-2 rounded text-[10px] text-[#06B6D4] transition-colors"
+                      >
+                        Apply Bevel ({selectedVertexIndices.length} vert{selectedVertexIndices.length !== 1 ? 's' : ''})
+                      </button>
+                    </div>
+
+                    {!multiSelected && selectedJointIndex !== null && (
+                      <button
+                        onClick={() => {
+                          saveHistory();
+                          dissolveVertex(selectedObject.id, selectedJointIndex);
+                        }}
+                        className="w-full bg-[#0F0F0F] border border-[#333] hover:border-red-500/40 p-2 rounded text-[10px] text-gray-600 hover:text-red-400 transition-colors"
+                      >
+                        Dissolve vertex
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
