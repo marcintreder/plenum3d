@@ -44,8 +44,8 @@ const EditableMesh = ({ object }) => {
       color: object.color,
       metalness: object.metalness ?? 0.5,
       roughness: object.roughness ?? 0.5,
-      transparent: true,
-      opacity: isVertexMode ? 0.6 : 0.9,
+      transparent: isVertexMode,
+      opacity: isVertexMode ? 0.6 : 1.0,
       emissive: multiSelectGlow ? '#7C3AED' : '#000000',
       emissiveIntensity: multiSelectGlow ? 0.4 : 0,
     };

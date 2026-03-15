@@ -17,7 +17,7 @@ export function buildPrimitiveMesh(type, size = [1, 1, 1]) {
 
   } else if (type === 'sphere') {
     const r = w / 2;
-    const segs = 12;
+    const segs = 20; // higher → smoother sphere
     for (let lat = 0; lat <= segs; lat++) {
       const theta = (lat * Math.PI) / segs;
       for (let lon = 0; lon <= segs; lon++) {
@@ -38,7 +38,7 @@ export function buildPrimitiveMesh(type, size = [1, 1, 1]) {
     }
 
   } else if (type === 'cylinder') {
-    const radius = w / 2, segs = 16;
+    const radius = w / 2, segs = 24;
     vertices.push([0, -h / 2, 0], [0, h / 2, 0]); // bottom center, top center
     for (let i = 0; i <= segs; i++) {
       const theta = (i / segs) * Math.PI * 2;
@@ -53,7 +53,7 @@ export function buildPrimitiveMesh(type, size = [1, 1, 1]) {
     }
 
   } else if (type === 'cone') {
-    const radius = w / 2, segs = 16;
+    const radius = w / 2, segs = 24;
     vertices.push([0, h / 2, 0]);  // apex
     vertices.push([0, -h / 2, 0]); // base center
     for (let i = 0; i <= segs; i++) {
