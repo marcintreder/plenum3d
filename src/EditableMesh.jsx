@@ -1,79 +1,74 @@
 import React, { useRef, useMemo, useEffect, useState } from 'react';
-import { PivotControls, Sphere, Html } from '@react-three/drei';
+import { PivotControls } from '@react-three/drei';
 import * as THREE from 'three';
 import useStore from './useStore';
 import { getGridSnap } from './utils/GridManager';
+import VertexHandles from './VertexHandles';
 
 const EditableMesh = ({ object }) => {
   const meshRef = useRef();
-  // Pass ref to object or store
-  useEffect(() => {
-    object.meshRef = meshRef;
-    return () => { object.meshRef = null; };
-  }, [object]);
-
   const geomRef = useRef();
-  const selectedObjectId = useStore((state) => state.selectedObjectId);
-  const editMode = useStore((state) => state.editMode);
-  const updateObjectTransform = useStore((state) => state.updateObjectTransform);
-  const setSelectedObjectId = useStore((state) => state.setSelectedObjectId);
-  const setSelectedJointIndex = useStore((state) => state.setSelectedJointIndex);
+
+  const selectedObjectId      = useStore(s => s.selectedObjectId);
+  const editMode              = useStore(s => s.editMode);
+  const setEditMode           = useStore(s => s.setEditMode);
+  const updateObjectTransform = useStore(s => s.updateObjectTransform);
+  const setSelectedObjectId   = useStore(s => s.setSelectedObjectId);
+  const setSelectedJointIndex = useStore(s => s.setSelectedJointIndex);
 
   const [isDragging, setIsDragging] = useState(false);
-
   const isSelected = selectedObjectId === object.id;
+  const isVertexMode = isSelected && editMode === 'vertex';
 
+  // Flat buffers for BufferGeometry
   const flatVertices = useMemo(() => {
-    if (!object?.vertices || object.vertices.length === 0) return new Float32Array([]);
-    try {
-      return new Float32Array(object.vertices.flat());
-    } catch (e) {
-      console.error("Flat vertices error", e);
-      return new Float32Array([]);
-    }
-  }, [object?.vertices]);
+    if (!object?.vertices?.length) return new Float32Array([]);
+    return new Float32Array(object.vertices.flat());
+  }, [object.vertices]);
 
   const flatIndices = useMemo(() => {
-    if (!object?.indices || object.indices.length === 0) return new Uint32Array([]);
-    try {
-      return new Uint32Array(object.indices);
-    } catch (e) {
-      console.error("Flat indices error", e);
-      return new Uint32Array([]);
-    }
-  }, [object?.indices]);
+    if (!object?.indices?.length) return new Uint32Array([]);
+    return new Uint32Array(object.indices);
+  }, [object.indices]);
 
-
+  // Recompute normals when geometry changes
   useEffect(() => {
-    if (geomRef.current) {
-      geomRef.current.computeVertexNormals();
-    }
+    if (geomRef.current) geomRef.current.computeVertexNormals();
   }, [object.vertices, object.indices]);
+
+  // Edge geometry for wireframe overlay in vertex mode
+  const edgePositions = useMemo(() => {
+    if (!isVertexMode || flatVertices.length === 0 || flatIndices.length === 0) return null;
+    const tempGeom = new THREE.BufferGeometry();
+    tempGeom.setAttribute('position', new THREE.BufferAttribute(flatVertices.slice(), 3));
+    tempGeom.setIndex(new THREE.BufferAttribute(flatIndices.slice(), 1));
+    const edges = new THREE.EdgesGeometry(tempGeom);
+    tempGeom.dispose();
+    return edges;
+  }, [isVertexMode, flatVertices, flatIndices]);
 
   const Material = useMemo(() => {
     const props = {
       color: object.color,
-      metalness: object.metalness,
-      roughness: object.roughness,
+      metalness: object.metalness ?? 0.5,
+      roughness: object.roughness ?? 0.5,
       transparent: true,
-      opacity: 0.9,
+      opacity: isVertexMode ? 0.6 : 0.9,
     };
     if (object.materialType === 'wireframe') return <meshStandardMaterial {...props} wireframe />;
-    if (object.materialType === 'physical') return <meshPhysicalMaterial {...props} />;
+    if (object.materialType === 'physical')  return <meshPhysicalMaterial  {...props} />;
     return <meshStandardMaterial {...props} />;
-  }, [object.color, object.materialType, object.metalness, object.roughness]);
+  }, [object.color, object.materialType, object.metalness, object.roughness, isVertexMode]);
 
   if (!object.visible) return null;
 
   const handleMeshClick = (e) => {
     e.stopPropagation();
-    // Single click: Select object
     setSelectedObjectId(object.id);
   };
 
   const handleDoubleClick = (e) => {
     e.stopPropagation();
-    // Double click: Enter sculpt mode (go deeper)
     setSelectedObjectId(object.id);
     setEditMode('vertex');
   };
@@ -87,35 +82,45 @@ const EditableMesh = ({ object }) => {
   const meshElement = (
     <mesh
       ref={meshRef}
-      position={object.position || [0, 0, 0]}
-      rotation={object.rotation || [0, 0, 0]}
-      scale={object.scale || [1, 1, 1]}
+      position={object.position || [0,0,0]}
+      rotation={object.rotation || [0,0,0]}
+      scale={object.scale    || [1,1,1]}
       onClick={handleMeshClick}
       onDoubleClick={handleDoubleClick}
       onPointerMissed={() => setSelectedJointIndex(null)}
     >
-      {flatVertices.length > 0 && flatIndices.length > 0 ? (
+      {flatVertices.length > 0 && flatIndices.length > 0 && (
         <bufferGeometry ref={geomRef}>
-          <bufferAttribute
-            attach="attributes-position"
-            count={flatVertices.length / 3}
-            array={flatVertices}
-            itemSize={3}
-          />
-          <bufferAttribute
-            attach="index"
-            count={flatIndices.length}
-            array={flatIndices}
-            itemSize={1}
-          />
+          <bufferAttribute attach="attributes-position" count={flatVertices.length / 3} array={flatVertices} itemSize={3} />
+          <bufferAttribute attach="index"               count={flatIndices.length}       array={flatIndices}  itemSize={1} />
         </bufferGeometry>
-      ) : null}
+      )}
       {Material}
     </mesh>
   );
 
+  // --- Vertex edit mode ---
+  if (isVertexMode) {
+    return (
+      <group>
+        {/* The mesh itself (slightly transparent so vertices are visible) */}
+        {meshElement}
 
-  if (isSelected && editMode === 'object') {
+        {/* Cyan edge wireframe so topology is visible */}
+        {edgePositions && (
+          <lineSegments geometry={edgePositions} renderOrder={1}>
+            <lineBasicMaterial color="#00e5ff" transparent opacity={0.35} depthTest={false} />
+          </lineSegments>
+        )}
+
+        {/* Draggable vertex dots */}
+        <VertexHandles object={object} />
+      </group>
+    );
+  }
+
+  // --- Object mode: PivotControls when selected ---
+  if (isSelected) {
     return (
       <PivotControls
         object={meshRef}
@@ -145,5 +150,3 @@ const EditableMesh = ({ object }) => {
 };
 
 export default EditableMesh;
-// Simplified implementation of edge highlighting for hover states
-// This is added to EditableMesh.jsx

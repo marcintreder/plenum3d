@@ -61,10 +61,15 @@ const useKeyboardShortcuts = () => {
         deleteObject(selectedObjectId);
       }
 
-      // Deselect (Escape)
+      // Escape: exit vertex mode first, then deselect on second press
       if (key === 'escape') {
-        setSelectedObjectId(null);
-        setSelectedJointIndex(null);
+        if (editMode === 'vertex') {
+          setEditMode('object');
+          setSelectedJointIndex(null);
+        } else {
+          setSelectedObjectId(null);
+          setSelectedJointIndex(null);
+        }
       }
 
       // Mode Switch

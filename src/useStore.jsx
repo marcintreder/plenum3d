@@ -11,8 +11,13 @@ const useStore = create((set, get) => ({
   historyIndex: 0,
   selectedObjectId: null,
   selectedJointIndex: null,
+  editMode: 'object',
+  orbitEnabled: true,
   isGenerating: false,
   exportRequested: false,
+
+  setEditMode: (mode) => set({ editMode: mode }),
+  setOrbitEnabled: (enabled) => set({ orbitEnabled: enabled }),
 
   saveHistory: () => {
     const { history, historyIndex, objects } = get();
@@ -42,9 +47,10 @@ const useStore = create((set, get) => ({
     };
   }),
 
-  setSelectedObjectId: (id) => set({ 
-    selectedObjectId: id, 
-    selectedJointIndex: null
+  setSelectedObjectId: (id) => set({
+    selectedObjectId: id,
+    selectedJointIndex: null,
+    editMode: id ? get().editMode : 'object',
   }),
   
   setSelectedJointIndex: (index) => set({ selectedJointIndex: index }),

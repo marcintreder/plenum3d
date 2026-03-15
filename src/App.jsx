@@ -7,7 +7,6 @@ import {
   Undo2, Redo2
 } from "lucide-react";
 import EditableMesh from "./EditableMesh";
-import JointManipulator from "./JointManipulator";
 import Inspector from "./Inspector";
 import Exporter from "./Exporter";
 import CodeView from "./CodeView";
@@ -25,16 +24,17 @@ const App = () => {
   
   const fileInputRef = React.useRef(null);
   
-  const { 
+  const {
     objects,
-    setSelectedJointIndex, 
-    isGenerating, 
-    setGenerating, 
-    setGeometry, 
-    setExportRequested, 
+    setSelectedObjectId,
+    isGenerating,
+    setGenerating,
+    setGeometry,
+    setExportRequested,
     addPrimitive,
     editMode,
     setEditMode,
+    orbitEnabled,
     undo,
     redo,
     historyIndex,
@@ -151,10 +151,14 @@ const App = () => {
 
       {/* Main Viewport */}
       <div className="flex-1 relative bg-black">
-        <Canvas 
-          camera={{ position: [5, 5, 5], fov: 45 }} 
+        <Canvas
+          camera={{ position: [5, 5, 5], fov: 45 }}
           className="transition-opacity duration-500 ease-in-out"
-          onPointerMissed={() => setSelectedJointIndex(null)}
+          onPointerMissed={() => {
+            // Click on empty space: if in vertex mode exit to object mode, else deselect
+            const { editMode: em, setEditMode: sem, setSelectedObjectId: ssoi } = useStore.getState();
+            if (em === 'vertex') { sem('object'); } else { ssoi(null); }
+          }}
           gl={{ preserveDrawingBuffer: true, antialias: true }}
           shadows
         >
@@ -162,15 +166,14 @@ const App = () => {
           <ambientLight intensity={1.5} />
           <directionalLight position={[10, 10, 10]} intensity={1.5} castShadow />
           <pointLight position={[-10, -10, -10]} intensity={1} color="#7C3AED" />
-          
+
           <Exporter />
           {objects.map(obj => (
             <EditableMesh key={obj.id} object={obj} />
           ))}
-          <JointManipulator />
-          
+
           <Grid infiniteGrid fadeDistance={50} sectionColor="#333" cellColor="#222" />
-          <OrbitControls makeDefault />
+          <OrbitControls makeDefault enabled={orbitEnabled} />
         </Canvas>
 
         {/* Floating Prompt Bar */}
