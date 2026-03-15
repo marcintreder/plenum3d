@@ -131,9 +131,7 @@ const useStore = create((set, get) => ({
   }),
 
   updateObjectTransform: (id, position, rotation, scale) => {
-    const { saveHistory, objects } = get();
-    saveHistory();
-    const newObjects = objects.map(obj => 
+    const newObjects = get().objects.map(obj =>
       obj.id === id ? { ...obj, position, rotation, scale } : obj
     );
     set({ objects: newObjects });

@@ -41,25 +41,21 @@ const EditableMesh = ({ object }) => {
 
 
   const Material = useMemo(() => {
+    // Non-primary multi-selected objects get a purple emissive glow
+    const multiSelectGlow = isSelected && !isPrimary;
     const props = {
       color: object.color,
       metalness: object.metalness ?? 0.5,
       roughness: object.roughness ?? 0.5,
       transparent: true,
       opacity: isVertexMode ? 0.6 : 0.9,
+      emissive: multiSelectGlow ? '#7C3AED' : '#000000',
+      emissiveIntensity: multiSelectGlow ? 0.4 : 0,
     };
     if (object.materialType === 'wireframe') return <meshStandardMaterial {...props} wireframe />;
     if (object.materialType === 'physical')  return <meshPhysicalMaterial  {...props} />;
     return <meshStandardMaterial {...props} />;
-  }, [object.color, object.materialType, object.metalness, object.roughness, isVertexMode]);
-
-  // Outline/highlight for multi-selected (non-primary) objects
-  const SelectionOutline = isSelected && !isPrimary ? (
-    <lineSegments renderOrder={10}>
-      <edgesGeometry args={[]} />
-      <lineBasicMaterial color="#7C3AED" depthTest={false} transparent opacity={0.8} />
-    </lineSegments>
-  ) : null;
+  }, [object.color, object.materialType, object.metalness, object.roughness, isVertexMode, isSelected, isPrimary]);
 
   if (!object.visible) return null;
 
@@ -78,11 +74,12 @@ const EditableMesh = ({ object }) => {
     setEditMode('vertex');
   };
 
-  const handleTransformStart = () => setIsDragging(true);
-  const handleTransformEnd = () => {
-    setIsDragging(false);
+  const handleTransformStart = () => {
+    // Snapshot state BEFORE the drag so one Ctrl+Z undoes the whole move
     useStore.getState().saveHistory();
+    setIsDragging(true);
   };
+  const handleTransformEnd = () => setIsDragging(false);
 
   const meshElement = (
     <mesh
