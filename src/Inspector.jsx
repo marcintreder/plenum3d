@@ -48,11 +48,13 @@ const Inspector = () => {
           <span className="text-[9px] text-gray-700 font-mono">{objects.length} Layers</span>
         </div>
         <div className="flex-1 overflow-y-auto p-2 space-y-1 bg-[#121212]">
-          {objects.map(obj => (
+              {objects.map(obj => (
             <div 
               key={obj.id}
               onClick={() => setSelectedObjectId(obj.id)}
-              className={}
+              className={`group flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all ${
+                selectedObjectId === obj.id ? 'bg-[#7C3AED]/20 border border-[#7C3AED]/30' : 'hover:bg-[#222] border border-transparent'
+              }`}
             >
               <div className="flex items-center gap-2 flex-1 min-w-0">
                 <button 
@@ -64,7 +66,7 @@ const Inspector = () => {
                 >
                   {obj.visible ? <Eye size={12} /> : <EyeOff size={12} />}
                 </button>
-                <span className={}>
+                <span className={`text-[11px] font-medium truncate ${selectedObjectId === obj.id ? 'text-white' : 'text-gray-500'}`}>
                   {obj.name}
                 </span>
               </div>
