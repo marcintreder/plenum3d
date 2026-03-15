@@ -1,7 +1,8 @@
 import React, { useRef, useMemo, useState } from 'react';
-import { PivotControls, Sphere, Html } from '@react-three/drei';
+import { PivotControls } from '@react-three/drei';
 import * as THREE from 'three';
 import useStore from './useStore';
+import { getGridSnap } from './utils/GridManager';
 
 const JointManipulator = () => {
   const objects = useStore((state) => state.objects);
@@ -20,18 +21,6 @@ const JointManipulator = () => {
   );
 
   if (!selectedObject || !selectedObject.visible || editMode !== 'vertex') return null;
-
-  const handleDrag = (matrix) => {
-    if (selectedJointIndex === null) return;
-    const position = new THREE.Vector3();
-    const q = new THREE.Quaternion();
-    const s = new THREE.Vector3();
-    matrix.decompose(position, q, s);
-    
-    // Crucial: The pivot controls are local to the object.
-    // Ensure we are translating the vertex relative to the object's original position.
-    updateVertex(selectedObjectId, selectedJointIndex, [position.x, position.y, position.z]);
-  };
 
   return (
     <group name="JointManipulatorGroup">
@@ -53,7 +42,8 @@ const JointManipulator = () => {
                   const q = new THREE.Quaternion();
                   const s = new THREE.Vector3();
                   localMatrix.decompose(pos, q, s);
-                  updateVertex(selectedObjectId, index, [pos.x, pos.y, pos.z]);
+                  const snapped = getGridSnap([pos.x, pos.y, pos.z], 0.1);
+                  updateVertex(selectedObjectId, index, snapped);
                 }}
                 onDragEnd={() => {
                   setIsDragging(false);
