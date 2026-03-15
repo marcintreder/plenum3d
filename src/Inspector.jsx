@@ -52,9 +52,55 @@ const Inspector = () => {
   const [collapsedGroups, setCollapsedGroups] = useState({});
   const [ctxMenu, setCtxMenu] = useState(null); // { x, y, items:[{label,action,danger}] }
   const ctxRef = useRef(null);
+  // Snapshot taken at drag start — ensures each slider value maps to an absolute result
+  const groupSnapRef = useRef(null);
 
-  // Reset group scale slider when active group changes
-  useEffect(() => { setGroupScalePct(100); }, [selectedGroupId]);
+  // Reset slider + clear snapshot when selected group changes
+  useEffect(() => {
+    setGroupScalePct(100);
+    groupSnapRef.current = null;
+  }, [selectedGroupId]);
+
+  // Take snapshot of all group vertices + positions at drag start, compute world centroid
+  const handleGroupScaleStart = () => {
+    if (!currentGroup) return;
+    saveHistory();
+    const groupObjs = useStore.getState().objects.filter(o => o.groupId === currentGroup.id);
+    let cx = 0, cy = 0, cz = 0, n = 0;
+    for (const o of groupObjs) {
+      const p = o.position || [0, 0, 0];
+      for (const v of (o.vertices || [])) { cx += p[0]+v[0]; cy += p[1]+v[1]; cz += p[2]+v[2]; n++; }
+    }
+    if (n > 0) { cx /= n; cy /= n; cz /= n; }
+    groupSnapRef.current = {
+      centroid: [cx, cy, cz],
+      objects: groupObjs.map(o => ({
+        id: o.id,
+        position: [...(o.position || [0, 0, 0])],
+        vertices: o.vertices.map(v => [...v]),
+      })),
+    };
+    setGroupScalePct(100);
+  };
+
+  // Apply absolute scale from snapshot — no incremental drift
+  const applyGroupScale = (pct) => {
+    const snap = groupSnapRef.current;
+    if (!snap) return;
+    const f = pct / 100;
+    const [cx, cy, cz] = snap.centroid;
+    for (const { id, position, vertices } of snap.objects) {
+      useStore.getState().updateObject(id, {
+        position: [
+          cx + (position[0] - cx) * f,
+          cy + (position[1] - cy) * f,
+          cz + (position[2] - cz) * f,
+        ],
+        vertices: vertices.map(v => [v[0] * f, v[1] * f, v[2] * f]),
+      });
+    }
+    setGroupScalePct(pct);
+  };
 
   // Close context menu on any outside click
   useEffect(() => {
@@ -323,33 +369,31 @@ const Inspector = () => {
               {objects.filter(o => o.groupId === currentGroup.id).length} parts
             </p>
 
-            {/* Group uniform scale — live slider, 100% = original */}
+            {/* Group scale — live slider anchored to a snapshot so values are absolute */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-[9px] text-gray-500 uppercase font-bold">Scale Group</label>
-                <span className="text-[10px] font-mono text-[#7C3AED]">{groupScalePct}%</span>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="number" min="10" max="300" step="1"
+                    value={groupScalePct}
+                    onFocus={handleGroupScaleStart}
+                    onChange={e => applyGroupScale(Math.max(10, Math.min(300, parseInt(e.target.value) || 100)))}
+                    className="w-14 bg-[#0F0F0F] border border-[#7C3AED]/30 focus:border-[#7C3AED] p-1 rounded text-[10px] outline-none font-mono text-[#7C3AED] text-center"
+                  />
+                  <span className="text-[9px] text-gray-600">%</span>
+                </div>
               </div>
               <input
                 type="range" min="10" max="300" step="1"
                 value={groupScalePct}
-                onMouseDown={() => saveHistory()}
-                onChange={e => {
-                  const next = parseInt(e.target.value);
-                  const factor = next / groupScalePct;
-                  setGroupScalePct(next);
-                  scaleGroup(currentGroup.id, factor);
-                }}
+                onMouseDown={handleGroupScaleStart}
+                onChange={e => applyGroupScale(parseInt(e.target.value))}
                 className="w-full accent-[#7C3AED]"
               />
               <div className="flex justify-between text-[8px] text-gray-700">
                 <span>10%</span><span>100%</span><span>300%</span>
               </div>
-              <button
-                onClick={() => { setGroupScalePct(100); }}
-                className="text-[8px] text-gray-600 hover:text-white transition-colors"
-              >
-                Reset to 100%
-              </button>
             </div>
           </section>
         )}
