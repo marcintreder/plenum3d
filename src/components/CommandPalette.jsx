@@ -26,12 +26,13 @@ const CommandPalette = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex justify-center pt-20">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex justify-center pt-20" role="dialog" aria-modal="true" aria-label="Command Palette">
       <div className="w-full max-w-lg bg-[#1A1A1A] border border-[#333] rounded-xl overflow-hidden shadow-2xl">
         <input 
           autoFocus
           className="w-full p-4 bg-transparent outline-none text-white border-b border-[#333]"
           placeholder="Search commands..."
+          aria-label="Search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />

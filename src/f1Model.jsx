@@ -88,8 +88,8 @@ export const generateF1 = () => {
     parts.push({
       id: Math.random().toString(36).substr(2, 9),
       name,
-      vertices: rotatedVertices,
-      indices,
+      vertices: new Float32Array(rotatedVertices.flat(Infinity)),
+      indices: new Uint16Array(indices),
       color,
       materialType: 'physical',
       metalness: 0.8,

@@ -209,9 +209,15 @@ export function bevelSelectedVertices(vertices, indices, selectedIndices, amount
     }
   }
 
-  // Add cap polygon for each selected vertex
+  // Add cap polygon for each selected vertex — only for closed (manifold) stars.
+  // Boundary vertices (cylinder rim, cone base, open edges) have an open star;
+  // adding a cap there would create a spurious triangle across the boundary gap.
   for (const vi of sel) {
     const star = walkStar(vi, indices);
+    if (star.length < 3) continue;
+    // Closed star: last tri's exit vertex wraps back to first tri's entry vertex
+    const isClosed = star[star.length - 1][2] === star[0][1];
+    if (!isClosed) continue;
     const ring = star.map(tri => bevelMap.get(`${vi}_${tri[1]}`)).filter(v => v !== undefined);
     if (ring.length >= 3) {
       for (let j = 1; j < ring.length - 1; j++) {
@@ -254,6 +260,38 @@ export function subdivideEdge(vertices, indices, v1, v2) {
 }
 
 // ── Dissolve vertex: remove it and re-triangulate the surrounding ring ────────
+
+// ── Laplacian smooth — selected vertices only ────────────────────────────────
+
+export function laplacianSmoothSelected(vertices, indices, selectedIndices, iterations = 1, factor = 0.5) {
+  const adj = buildAdjacency(vertices, indices);
+  const sel = new Set(selectedIndices);
+  let verts = vertices.map(v => [...v]);
+
+  for (let iter = 0; iter < iterations; iter++) {
+    const next = verts.map((v, i) => {
+      if (!sel.has(i)) return v;
+      const neighbors = adj[i];
+      if (!neighbors.length) return v;
+      const avg = [0, 0, 0];
+      for (const n of neighbors) {
+        avg[0] += verts[n][0];
+        avg[1] += verts[n][1];
+        avg[2] += verts[n][2];
+      }
+      avg[0] /= neighbors.length;
+      avg[1] /= neighbors.length;
+      avg[2] /= neighbors.length;
+      return [
+        v[0] * (1 - factor) + avg[0] * factor,
+        v[1] * (1 - factor) + avg[1] * factor,
+        v[2] * (1 - factor) + avg[2] * factor,
+      ];
+    });
+    verts = next;
+  }
+  return verts;
+}
 
 export function dissolveVertex(vertices, indices, vi) {
   const star = walkStar(vi, indices);

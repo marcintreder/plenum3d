@@ -20,7 +20,7 @@ describe('code generation', () => {
     
     expect(code).toContain('<mesh');
     expect(code).toContain('name="test-cube"');
-    expect(code).toContain('position={[0, 0, 0]}');
+    expect(code).toContain('position={[0.00, 0.00, 0.00]}');
     expect(code).toContain('<bufferGeometry>');
     expect(code).toContain('color="#ff0000"');
     expect(code).toContain('</mesh>');

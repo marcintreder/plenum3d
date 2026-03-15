@@ -1,5 +1,34 @@
 // Sculpt3D High-Fidelity F1 Model Generator
-// Detailed multi-part assembly - Returns an array of object configurations
+// Detailed multi-part assembly - Returns { objects, groups }
+
+export const F1_GROUPS = [
+  { id: 'g_chassis',    name: 'Chassis'    },
+  { id: 'g_cockpit',   name: 'Cockpit'    },
+  { id: 'g_sidepods',  name: 'Sidepods'   },
+  { id: 'g_front_wing',name: 'Front Wing' },
+  { id: 'g_rear_wing', name: 'Rear Wing'  },
+  { id: 'g_diffuser',  name: 'Diffuser'   },
+  { id: 'g_suspension',name: 'Suspension' },
+  { id: 'g_wheels',    name: 'Wheels'     },
+];
+
+const GROUP_PATTERNS = [
+  { id: 'g_wheels',     patterns: ['Wheel'] },
+  { id: 'g_front_wing', patterns: ['Front Wing'] },
+  { id: 'g_rear_wing',  patterns: ['Rear Wing'] },
+  { id: 'g_diffuser',   patterns: ['Diffuser'] },
+  { id: 'g_suspension', patterns: ['Suspension'] },
+  { id: 'g_cockpit',    patterns: ['Cockpit', 'Halo', 'Steering', 'Driver', 'Headrest'] },
+  { id: 'g_sidepods',   patterns: ['Sidepod'] },
+  { id: 'g_chassis',    patterns: ['Chassis', 'Nose', 'Engine Cover', 'Main Chassis'] },
+];
+
+function assignGroupId(name) {
+  for (const { id, patterns } of GROUP_PATTERNS) {
+    if (patterns.some(p => name.includes(p))) return id;
+  }
+  return null;
+}
 
 export const generateF1 = () => {
   const parts = [];
@@ -83,6 +112,7 @@ export const generateF1 = () => {
     parts.push({
       id: Math.random().toString(36).substr(2, 9),
       name,
+      groupId: assignGroupId(name),
       vertices: rotatedVertices,
       indices,
       color,
@@ -90,7 +120,7 @@ export const generateF1 = () => {
       metalness: 0.8,
       roughness: 0.2,
       visible: true,
-      position: [0, 0, 0], 
+      position: [0, 0, 0],
       rotation: [0, 0, 0],
       scale: [1, 1, 1]
     });
@@ -151,5 +181,5 @@ export const generateF1 = () => {
   createPart('Suspension Rear Arm R', [-1.0, -0.05, 0.45], [0.05, 0.05, 0.5], 'box', SILVER);
   createPart('Suspension Rear Arm L', [-1.0, -0.05, -0.45], [0.05, 0.05, 0.5], 'box', SILVER);
 
-  return parts;
+  return { objects: parts, groups: F1_GROUPS };
 };
