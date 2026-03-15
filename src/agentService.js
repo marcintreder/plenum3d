@@ -236,8 +236,9 @@ function extractJSON(text) {
 
 // ── Call Anthropic ────────────────────────────────────────────────────────────
 
-async function callAnthropicAgent(command, sceneDesc, apiKey, log) {
-  log('info', 'Sending agent command to Anthropic (claude-sonnet-4-6)…');
+async function callAnthropicAgent(command, sceneDesc, apiKey, log, model) {
+  const m = model || 'claude-sonnet-4-6';
+  log('info', `Sending agent command to Anthropic (${m})…`);
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -246,7 +247,7 @@ async function callAnthropicAgent(command, sceneDesc, apiKey, log) {
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
+      model: m,
       max_tokens: 2048,
       system: buildSystemPrompt(sceneDesc),
       messages: [{ role: 'user', content: command }],
@@ -268,8 +269,9 @@ async function callAnthropicAgent(command, sceneDesc, apiKey, log) {
 
 // ── Call OpenAI ───────────────────────────────────────────────────────────────
 
-async function callOpenAIAgent(command, sceneDesc, apiKey, log) {
-  log('info', 'Sending agent command to OpenAI (gpt-4o)…');
+async function callOpenAIAgent(command, sceneDesc, apiKey, log, model) {
+  const m = model || 'gpt-4o';
+  log('info', `Sending agent command to OpenAI (${m})…`);
   const tools = AGENT_TOOLS.map(t => ({
     type: 'function',
     function: { name: t.name, description: t.description, parameters: t.input_schema },
@@ -279,7 +281,7 @@ async function callOpenAIAgent(command, sceneDesc, apiKey, log) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
-      model: 'gpt-4o',
+      model: m,
       messages: [
         { role: 'system', content: buildSystemPrompt(sceneDesc) },
         { role: 'user', content: command },
@@ -516,7 +518,7 @@ function parseCommandFallback(command, objects, groups) {
 
 // ── Main export ───────────────────────────────────────────────────────────────
 
-export async function executeAgentCommand(command, { objects, groups }, keys = {}, onLog = null, providerOverride = null) {
+export async function executeAgentCommand(command, { objects, groups }, keys = {}, onLog = null, providerOverride = null, modelOverride = null) {
   const log = (type, msg) => onLog?.(type, msg);
   const sceneDesc = buildSceneDescription(objects, groups);
   log('info', `Scene: ${objects.length} objects, ${groups.length} groups`);
@@ -525,11 +527,15 @@ export async function executeAgentCommand(command, { objects, groups }, keys = {
   const ollamaUrl = keys['Ollama URL'] || 'http://localhost:11434';
   const ollamaAgentModel = keys['Ollama Agent Model'] || null;
 
+  // Resolve per-provider model: explicit override → saved key default → hardcoded default
+  const anthropicModel = modelOverride || keys['Anthropic Agent Model'] || null;
+  const openAIModel    = modelOverride || keys['OpenAI Agent Model']    || null;
+
   try {
     if      (providerOverride === 'Anthropic' || (!providerOverride && Anthropic))
-      return await callAnthropicAgent(command, sceneDesc, Anthropic, log);
+      return await callAnthropicAgent(command, sceneDesc, Anthropic, log, anthropicModel);
     if      (providerOverride === 'OpenAI'    || (!providerOverride && OpenAI))
-      return await callOpenAIAgent(command, sceneDesc, OpenAI, log);
+      return await callOpenAIAgent(command, sceneDesc, OpenAI, log, openAIModel);
     return await callOllamaAgent(command, sceneDesc, ollamaUrl, ollamaAgentModel, log);
   } catch (err) {
     if (err.name === 'AbortError') {

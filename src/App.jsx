@@ -16,6 +16,26 @@ import useKeyboardShortcuts from "./useKeyboardShortcuts";
 import { generate3DModel } from "./aiService";
 import { executeAgentCommand, resolveTargets } from "./agentService";
 
+const COMMERCIAL_MODELS = {
+  Anthropic: ['claude-sonnet-4-6', 'claude-opus-4-6', 'claude-haiku-4-5-20251001'],
+  OpenAI:    ['gpt-4o-mini', 'gpt-4o', 'gpt-4.1', 'gpt-4.1-mini'],
+  Gemini:    ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.5-pro'],
+};
+
+const MODEL_LABELS = {
+  'claude-sonnet-4-6':       'Sonnet 4.6',
+  'claude-opus-4-6':         'Opus 4.6',
+  'claude-haiku-4-5-20251001':'Haiku 4.5',
+  'gpt-4o':                  'GPT-4o',
+  'gpt-4o-mini':             '4o mini',
+  'gpt-4.1':                 'GPT-4.1',
+  'gpt-4.1-mini':            '4.1 mini',
+  'gemini-2.0-flash':        'Flash 2.0',
+  'gemini-1.5-flash':        'Flash 1.5',
+  'gemini-1.5-pro':          'Pro 1.5',
+  'gemini-2.5-pro':          'Pro 2.5',
+};
+
 const App = () => {
   const [isModalOpen, setModalOpen] = useState(false);
   const [isCodeViewOpen, setCodeViewOpen] = useState(false);
@@ -29,6 +49,7 @@ const App = () => {
   const [consoleLogs, setConsoleLogs] = useState([]);
   const [consoleOpen, setConsoleOpen] = useState(false);
   const [providerOverride, setProviderOverride] = useState(null);
+  const [modelOverride, setModelOverride] = useState(null);
 
   const addLog = useCallback((type, msg) => {
     const ts = new Date().toLocaleTimeString('en-US', { hour12: false });
@@ -77,6 +98,15 @@ const App = () => {
     opts.push({ id: 'Ollama', label: 'Ollama' });
     return opts;
   }, [keys]);
+
+  // Model options for the selected commercial provider
+  const modelOptions = useMemo(() => {
+    if (!providerOverride || providerOverride === 'Ollama') return [];
+    return COMMERCIAL_MODELS[providerOverride] || [];
+  }, [providerOverride]);
+
+  // Reset model override when provider changes
+  useEffect(() => { setModelOverride(null); }, [providerOverride]);
 
   // Activate global shortcuts
   useKeyboardShortcuts();
@@ -205,7 +235,7 @@ const App = () => {
       if (!consoleOpen) setConsoleOpen(true);
       try {
         const { objects: objs, groups: grps } = useStore.getState();
-        const ops = await executeAgentCommand(prompt, { objects: objs, groups: grps }, keys, addLog, providerOverride);
+        const ops = await executeAgentCommand(prompt, { objects: objs, groups: grps }, keys, addLog, providerOverride, modelOverride);
         if (ops.length === 0) {
           setAgentFeedback('No matching operations found.');
         } else {
@@ -228,7 +258,7 @@ const App = () => {
     setConsoleLogs([]);
     if (!consoleOpen) setConsoleOpen(true);
     try {
-      const newGeometry = await generate3DModel(prompt, refImage, keys, addLog, providerOverride);
+      const newGeometry = await generate3DModel(prompt, refImage, keys, addLog, providerOverride, modelOverride);
       if (newGeometry.isParts) {
         addObjects(newGeometry.parts, newGeometry.name);
       } else {
@@ -386,7 +416,7 @@ const App = () => {
 
           {/* Provider selector pills */}
           {providerOptions.length > 2 && (
-            <div className="flex justify-center mb-2 gap-1 flex-wrap">
+            <div className="flex justify-center mb-1 gap-1 flex-wrap">
               {providerOptions.map(p => (
                 <button
                   key={String(p.id)}
@@ -398,6 +428,25 @@ const App = () => {
                   }`}
                 >
                   {p.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Model sub-pills — shown when a commercial provider is selected */}
+          {modelOptions.length > 0 && (
+            <div className="flex justify-center mb-2 gap-1 flex-wrap">
+              {modelOptions.map(m => (
+                <button
+                  key={m}
+                  onClick={() => setModelOverride(modelOverride === m ? null : m)}
+                  className={`px-2 py-0.5 rounded-full text-[9px] transition-all ${
+                    modelOverride === m
+                      ? 'bg-[#7C3AED]/30 text-[#A78BFA] border border-[#7C3AED]/60'
+                      : 'bg-transparent text-gray-600 border border-[#222] hover:text-gray-400'
+                  }`}
+                >
+                  {MODEL_LABELS[m] || m}
                 </button>
               ))}
             </div>
@@ -482,6 +531,28 @@ const App = () => {
                     onChange={(e) => saveKey(provider, e.target.value)}
                     className="w-full bg-[#0F0F0F] border border-[#333] p-3 rounded-xl outline-none focus:border-[#7C3AED]"
                   />
+                  {keys[provider] && (
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      {[
+                        { key: `${provider} Generate Model`, label: 'Generate' },
+                        { key: `${provider} Agent Model`,    label: 'Agent' },
+                      ].map(({ key, label }) => (
+                        <div key={key}>
+                          <label className="block text-[9px] uppercase tracking-widest text-gray-600 mb-1">{label} model</label>
+                          <select
+                            value={keys[key] || ''}
+                            onChange={(e) => saveKey(key, e.target.value)}
+                            className="w-full bg-[#0F0F0F] border border-[#333] p-2 rounded-lg text-[11px] outline-none appearance-none cursor-pointer text-gray-300 focus:border-[#7C3AED]"
+                          >
+                            <option value="">Default</option>
+                            {(COMMERCIAL_MODELS[provider] || []).map(m => (
+                              <option key={m} value={m}>{MODEL_LABELS[m] || m}</option>
+                            ))}
+                          </select>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
 

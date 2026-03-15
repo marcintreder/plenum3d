@@ -139,11 +139,12 @@ function interpretResponse(parsed, log) {
 
 // ── Anthropic: two-stage (design → build) ────────────────────────────────────
 
-async function generateWithAnthropic(prompt, referenceImage, apiKey, log) {
+async function generateWithAnthropic(prompt, referenceImage, apiKey, log, model) {
   const headers = { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' };
+  const m = model || 'claude-sonnet-4-6';
 
   // Stage 1 — design
-  log('info', 'Stage 1/2 — Designing layout (Anthropic)…');
+  log('info', `Stage 1/2 — Designing layout (Anthropic / ${m})…`);
   const designContent = [];
   if (referenceImage) {
     const [header, imgData] = referenceImage.split(',');
@@ -154,7 +155,7 @@ async function generateWithAnthropic(prompt, referenceImage, apiKey, log) {
 
   const designRes = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST', headers,
-    body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1024, system: DESIGN_SYSTEM_PROMPT, messages: [{ role: 'user', content: designContent }] }),
+    body: JSON.stringify({ model: m, max_tokens: 1024, system: DESIGN_SYSTEM_PROMPT, messages: [{ role: 'user', content: designContent }] }),
   });
   if (!designRes.ok) throw new Error(`Anthropic stage-1 error: ${designRes.statusText}`);
   const designData = await designRes.json();
@@ -165,7 +166,7 @@ async function generateWithAnthropic(prompt, referenceImage, apiKey, log) {
   const buildRes = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST', headers,
     body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
+      model: m,
       max_tokens: 4096,
       system: 'You output only valid JSON objects. No markdown, no code fences, no explanation.',
       messages: [{ role: 'user', content: buildFromDesignPrompt(design) }],
@@ -180,11 +181,14 @@ async function generateWithAnthropic(prompt, referenceImage, apiKey, log) {
 
 // ── OpenAI: two-stage ─────────────────────────────────────────────────────────
 
-async function generateWithOpenAI(prompt, referenceImage, apiKey, log) {
+async function generateWithOpenAI(prompt, referenceImage, apiKey, log, model) {
   const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` };
+  // Stage 1 uses vision-capable model when image provided; stage 2 always uses the cheaper model
+  const m1 = model || (referenceImage ? 'gpt-4o' : 'gpt-4o-mini');
+  const m2 = model || 'gpt-4o-mini';
 
   // Stage 1 — design
-  log('info', 'Stage 1/2 — Designing layout (OpenAI)…');
+  log('info', `Stage 1/2 — Designing layout (OpenAI / ${m1})…`);
   const designUserContent = [];
   if (referenceImage) designUserContent.push({ type: 'image_url', image_url: { url: referenceImage } });
   designUserContent.push({ type: 'text', text: `Design a 3D model of: ${prompt}` });
@@ -192,7 +196,7 @@ async function generateWithOpenAI(prompt, referenceImage, apiKey, log) {
   const designRes = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST', headers,
     body: JSON.stringify({
-      model: referenceImage ? 'gpt-4o' : 'gpt-4o-mini',
+      model: m1,
       max_tokens: 1024,
       messages: [{ role: 'system', content: DESIGN_SYSTEM_PROMPT }, { role: 'user', content: designUserContent }],
     }),
@@ -206,7 +210,7 @@ async function generateWithOpenAI(prompt, referenceImage, apiKey, log) {
   const buildRes = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST', headers,
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model: m2,
       max_tokens: 4096,
       response_format: { type: 'json_object' },
       messages: [
@@ -224,14 +228,15 @@ async function generateWithOpenAI(prompt, referenceImage, apiKey, log) {
 
 // ── Gemini: two-stage ─────────────────────────────────────────────────────────
 
-async function generateWithGemini(prompt, referenceImage, apiKey, log) {
-  const call = (model, sysText, userParts, jsonMode = false) => {
+async function generateWithGemini(prompt, referenceImage, apiKey, log, model) {
+  const m = model || 'gemini-2.0-flash';
+  const call = (mdl, sysText, userParts, jsonMode = false) => {
     const body = {
       system_instruction: { parts: [{ text: sysText }] },
       contents: [{ parts: userParts }],
     };
     if (jsonMode) body.generationConfig = { response_mime_type: 'application/json' };
-    return fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+    return fetch(`https://generativelanguage.googleapis.com/v1beta/models/${mdl}:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -239,7 +244,7 @@ async function generateWithGemini(prompt, referenceImage, apiKey, log) {
   };
 
   // Stage 1 — design
-  log('info', 'Stage 1/2 — Designing layout (Gemini)…');
+  log('info', `Stage 1/2 — Designing layout (Gemini / ${m})…`);
   const designParts = [];
   if (referenceImage) {
     const [header, imgData] = referenceImage.split(',');
@@ -247,14 +252,14 @@ async function generateWithGemini(prompt, referenceImage, apiKey, log) {
   }
   designParts.push({ text: `Design a 3D model of: ${prompt}` });
 
-  const designRes = await call('gemini-1.5-flash', DESIGN_SYSTEM_PROMPT, designParts);
+  const designRes = await call(m, DESIGN_SYSTEM_PROMPT, designParts);
   if (!designRes.ok) throw new Error(`Gemini stage-1 error: ${designRes.statusText}`);
   const designData = await designRes.json();
   const design = designData.candidates[0].content.parts[0].text;
   log('info', 'Layout designed — building geometry…');
 
   // Stage 2 — build JSON
-  const buildRes = await call('gemini-1.5-flash', 'Output only valid JSON. No markdown.', [{ text: buildFromDesignPrompt(design) }], true);
+  const buildRes = await call(m, 'Output only valid JSON. No markdown.', [{ text: buildFromDesignPrompt(design) }], true);
   if (!buildRes.ok) throw new Error(`Gemini stage-2 error: ${buildRes.statusText}`);
   const buildData = await buildRes.json();
   const parsed = extractJSON(buildData.candidates[0].content.parts[0].text);
@@ -321,20 +326,26 @@ export const generate3DModel = async (
   keys = {},
   onLog = null,
   providerOverride = null,
+  modelOverride = null,
 ) => {
   const log = (type, msg) => onLog?.(type, msg);
   const { Anthropic, OpenAI, Gemini } = keys;
   const ollamaUrl = keys['Ollama URL'] || 'http://localhost:11434';
   const ollamaGenerateModel = keys['Ollama Generate Model'] || null;
 
+  // Resolve per-provider model: explicit override → saved key default → hardcoded default
+  const anthropicModel = modelOverride || keys['Anthropic Generate Model'] || null;
+  const openAIModel    = modelOverride || keys['OpenAI Generate Model']    || null;
+  const geminiModel    = modelOverride || keys['Gemini Generate Model']    || null;
+
   try {
     let result;
     if      (providerOverride === 'Anthropic' || (!providerOverride && Anthropic))
-      result = await generateWithAnthropic(prompt, referenceImage, Anthropic, log);
+      result = await generateWithAnthropic(prompt, referenceImage, Anthropic, log, anthropicModel);
     else if (providerOverride === 'OpenAI'    || (!providerOverride && OpenAI))
-      result = await generateWithOpenAI(prompt, referenceImage, OpenAI, log);
+      result = await generateWithOpenAI(prompt, referenceImage, OpenAI, log, openAIModel);
     else if (providerOverride === 'Gemini'    || (!providerOverride && Gemini))
-      result = await generateWithGemini(prompt, referenceImage, Gemini, log);
+      result = await generateWithGemini(prompt, referenceImage, Gemini, log, geminiModel);
     else
       result = await generateWithOllama(prompt, referenceImage, ollamaUrl, ollamaGenerateModel, log);
 
