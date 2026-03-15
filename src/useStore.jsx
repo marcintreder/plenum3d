@@ -4,12 +4,13 @@ import { generateF1 } from './f1Model';
 const initialObjects = generateF1();
 
 const useStore = create((set, get) => ({
+  setState: (state, replace) => set(state, replace),
+  getState: () => get(),
   objects: initialObjects,
   history: [JSON.parse(JSON.stringify(initialObjects))],
   historyIndex: 0,
   selectedObjectId: null,
   selectedJointIndex: null,
-  editMode: 'object',
   isGenerating: false,
   exportRequested: false,
 
@@ -41,7 +42,6 @@ const useStore = create((set, get) => ({
     };
   }),
 
-  setEditMode: (mode) => set({ editMode: mode, selectedJointIndex: null }),
   setSelectedObjectId: (id) => set({ 
     selectedObjectId: id, 
     selectedJointIndex: null
@@ -187,6 +187,12 @@ const useStore = create((set, get) => ({
     });
   },
 
+  setGroup: (groupId) => set((state) => ({ 
+    objects: state.objects.map(o => o.id === state.selectedObjectId ? {...o, groupId} : o) 
+  })), 
+  unsetGroup: () => set((state) => ({ 
+    objects: state.objects.map(o => o.id === state.selectedObjectId ? {...o, groupId: null} : o) 
+  })), 
   deleteObject: (id) => {
     const { saveHistory, objects, selectedObjectId } = get();
     saveHistory();

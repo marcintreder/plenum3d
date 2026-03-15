@@ -12,15 +12,13 @@ const Inspector = () => {
     selectedJointIndex,
     setSelectedJointIndex,
     updateVertex,
-    editMode,
-    setEditMode,
     saveHistory
   } = useStore();
 
   const selectedObject = objects.find(o => o?.id === selectedObjectId);
   const selectedJoint = selectedObject && selectedJointIndex !== null ? selectedObject.vertices[selectedJointIndex] : null;
 
-  console.log('Inspector: Rendered. SelectedObject:', selectedObject, 'EditMode:', editMode);
+  console.log('Inspector: Rendered. SelectedObject:', selectedObject);
 
   const handleVertexChange = (axis, value) => {
     if (!selectedObject || selectedJointIndex === null) return;
@@ -45,22 +43,6 @@ const Inspector = () => {
         <div className="flex items-center gap-2">
           <Sliders size={14} className="text-[#7C3AED]" />
           <span className="text-[10px] uppercase tracking-widest text-white font-black">Object Settings</span>
-        </div>
-        <div className="flex bg-[#0F0F0F] rounded-lg p-1 border border-[#333]">
-          <button 
-            onClick={() => setEditMode('object')}
-            className={`p-1.5 rounded-md transition-all ${editMode === 'object' ? 'bg-[#7C3AED] text-white' : 'text-gray-600 hover:text-white'}`}
-            title="Object Mode (V)"
-          >
-            <Move size={12} />
-          </button>
-          <button 
-            onClick={() => setEditMode('vertex')}
-            className={`p-1.5 rounded-md transition-all ${editMode === 'vertex' ? 'bg-[#06B6D4] text-white' : 'text-gray-600 hover:text-white'}`}
-            title="Sculpt Mode (J)"
-          >
-            <Scissors size={12} />
-          </button>
         </div>
       </div>
 
@@ -179,7 +161,7 @@ const Inspector = () => {
 
               <div className="space-y-4 pt-4 border-t border-[#333]">
               <div className="text-[10px] uppercase tracking-widest text-[#06B6D4] font-black flex items-center gap-2">
-                <Crosshair size={12} /> {editMode === 'vertex' ? 'Active Sculpting' : 'Sculpt Tool'}
+                <Crosshair size={12} /> Sculpting
               </div>
 
               {selectedJointIndex !== null ? (
@@ -225,7 +207,7 @@ const Inspector = () => {
               ) : (
                 <div className="p-6 bg-[#222]/10 border border-dashed border-[#333] rounded-xl text-center group hover:border-[#06B6D4]/30 transition-colors">
                   <p className="text-[9px] text-gray-600 italic leading-relaxed group-hover:text-gray-400 transition-colors">
-                    Switch to <b>Sculpt Mode</b> and click<br/>any vertex handle in the viewport<br/>to begin fine-tuning.
+                    Double-click any object in the viewport<br/>to enter Sculpt Mode and select<br/>vertices to begin fine-tuning.
                   </p>
                 </div>
               )}
