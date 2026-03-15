@@ -63,13 +63,13 @@ const EditableMesh = ({ object }) => {
       return;
     }
 
-    // Group-first click: first click on a grouped object selects the whole group
+    // Group selection: first click on a grouped object selects the group.
+    // We still fall through to start the drag so the object moves immediately.
     if (object.groupId && selectedGroupId !== object.groupId) {
       setSelectedGroupId(object.groupId);
-      return; // don't start drag on first group click
+    } else {
+      setSelectedObjectId(object.id);
     }
-
-    setSelectedObjectId(object.id);
 
     const cameraDir = new THREE.Vector3();
     camera.getWorldDirection(cameraDir);
@@ -90,10 +90,9 @@ const EditableMesh = ({ object }) => {
     const posStart = [...(object.position || [0, 0, 0])];
     let hasMoved = false;
 
-    // For group drag: use the pre-call selectedGroupId (React selector value from current
-    // render closure) — NOT useStore.getState().selectedGroupId, which has already been
-    // cleared by the synchronous setSelectedObjectId() call above.
-    const isGroupDrag = object.groupId && selectedGroupId === object.groupId;
+    // Always treat grouped objects as a group drag (use object.groupId directly
+    // rather than the stale selectedGroupId closure value).
+    const isGroupDrag = !!object.groupId;
     const groupStartPositions = isGroupDrag
       ? Object.fromEntries(
           useStore.getState().objects
@@ -137,9 +136,14 @@ const EditableMesh = ({ object }) => {
 
   const handleDoubleClick = useCallback((e) => {
     e.stopPropagation();
-    setSelectedObjectId(object.id);
-    setEditMode('vertex');
-  }, [setSelectedObjectId, setEditMode, object.id]);
+    if (isPrimary && editMode === 'object') {
+      // Already this object selected in object mode → enter vertex edit
+      setEditMode('vertex');
+    } else {
+      // First double-click: drill into group / select this object
+      setSelectedObjectId(object.id);
+    }
+  }, [isPrimary, editMode, setSelectedObjectId, setEditMode, object.id]);
 
   if (!object.visible) return null;
 

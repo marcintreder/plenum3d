@@ -2,6 +2,10 @@
  * Build triangle mesh geometry for a named primitive type.
  * Returns { vertices: [[x,y,z],...], indices: [i,i,i,...] } in local space,
  * centered at the origin, sized by the `size` array [width, height, depth].
+ *
+ * NOTE: cylinder and cone use exactly `segs` rim vertices with modulo wrap —
+ * never segs+1. A duplicate seam vertex causes a visible gap after Laplacian
+ * smoothing because the two copies have different neighbour sets and diverge.
  */
 export function buildPrimitiveMesh(type, size = [1, 1, 1]) {
   const [w = 1, h = 1, d = 1] = size.map(Number);
@@ -17,7 +21,7 @@ export function buildPrimitiveMesh(type, size = [1, 1, 1]) {
 
   } else if (type === 'sphere') {
     const r = w / 2;
-    const segs = 20; // higher → smoother sphere
+    const segs = 20;
     for (let lat = 0; lat <= segs; lat++) {
       const theta = (lat * Math.PI) / segs;
       for (let lon = 0; lon <= segs; lon++) {
@@ -38,31 +42,36 @@ export function buildPrimitiveMesh(type, size = [1, 1, 1]) {
     }
 
   } else if (type === 'cylinder') {
+    // Index layout: 0=bottom-center, 1=top-center, then segs×2 rim pairs
     const radius = w / 2, segs = 24;
-    vertices.push([0, -h / 2, 0], [0, h / 2, 0]); // bottom center, top center
-    for (let i = 0; i <= segs; i++) {
+    vertices.push([0, -h / 2, 0], [0, h / 2, 0]);
+    for (let i = 0; i < segs; i++) {
       const theta = (i / segs) * Math.PI * 2;
       const x = Math.cos(theta) * radius, z = Math.sin(theta) * radius;
       vertices.push([x, -h / 2, z], [x, h / 2, z]);
     }
     for (let i = 0; i < segs; i++) {
-      const b = 2 + i * 2, t = b + 1, bn = 2 + (i + 1) * 2, tn = bn + 1;
-      indices.push(b, t, bn, t, tn, bn); // side
-      indices.push(0, bn, b);            // bottom cap
-      indices.push(1, t, tn);            // top cap
+      const b  = 2 + i * 2,           t  = b + 1;
+      const bn = 2 + ((i + 1) % segs) * 2, tn = bn + 1;
+      indices.push(b, t, bn,  t, tn, bn); // side quad
+      indices.push(0, bn, b);              // bottom cap
+      indices.push(1, t,  tn);             // top cap
     }
 
   } else if (type === 'cone') {
+    // Index layout: 0=apex, 1=base-center, then segs rim vertices
     const radius = w / 2, segs = 24;
-    vertices.push([0, h / 2, 0]);  // apex
+    vertices.push([0,  h / 2, 0]); // apex
     vertices.push([0, -h / 2, 0]); // base center
-    for (let i = 0; i <= segs; i++) {
+    for (let i = 0; i < segs; i++) {
       const theta = (i / segs) * Math.PI * 2;
       vertices.push([Math.cos(theta) * radius, -h / 2, Math.sin(theta) * radius]);
     }
     for (let i = 0; i < segs; i++) {
-      indices.push(0, i + 2, i + 3);  // side
-      indices.push(1, i + 3, i + 2);  // base cap
+      const curr = i + 2;
+      const next = ((i + 1) % segs) + 2;
+      indices.push(0, curr, next); // side face
+      indices.push(1, next, curr); // base cap
     }
   }
 

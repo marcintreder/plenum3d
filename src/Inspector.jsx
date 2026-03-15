@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Layers, Eye, EyeOff, Trash2, Crosshair, Move, Scissors, Sliders,
   Camera, Sparkles, Triangle, ChevronRight, ChevronDown, Users, Link2, Unlink2
@@ -34,6 +34,7 @@ const Inspector = () => {
     scaleUniform,
     scaleGroup,
     removeGroup,
+    toggleSelectedObjectId,
     selectSimilar,
     smoothObject,
     smoothSelectedVertices,
@@ -47,8 +48,27 @@ const Inspector = () => {
   const [smoothIterations, setSmoothIterations] = useState(2);
   const [smoothFactor, setSmoothFactor] = useState(0.5);
   const [uniformScalePct, setUniformScalePct] = useState('');
-  const [groupScalePct, setGroupScalePct] = useState('');
+  const [groupScalePct, setGroupScalePct] = useState(100);
   const [collapsedGroups, setCollapsedGroups] = useState({});
+  const [ctxMenu, setCtxMenu] = useState(null); // { x, y, items:[{label,action,danger}] }
+  const ctxRef = useRef(null);
+
+  // Reset group scale slider when active group changes
+  useEffect(() => { setGroupScalePct(100); }, [selectedGroupId]);
+
+  // Close context menu on any outside click
+  useEffect(() => {
+    if (!ctxMenu) return;
+    const close = () => setCtxMenu(null);
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [ctxMenu]);
+
+  const showCtx = (e, items) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCtxMenu({ x: e.clientX, y: e.clientY, items });
+  };
 
   const multiObjectSelected = selectedObjectIds.length > 1;
   const selectedObject = objects.find(o => o?.id === selectedObjectId);
@@ -107,14 +127,6 @@ const Inspector = () => {
     saveHistory();
     scaleUniform(selectedObject.id, 1 + pct / 100);
     setUniformScalePct('');
-  };
-
-  const handleApplyGroupScale = () => {
-    const pct = parseFloat(groupScalePct);
-    if (isNaN(pct) || !currentGroup) return;
-    saveHistory();
-    scaleGroup(currentGroup.id, 1 + pct / 100);
-    setGroupScalePct('');
   };
 
   const handleCSG = (op) => {
@@ -191,7 +203,7 @@ const Inspector = () => {
       <div className="flex-[0.45] flex flex-col border-b border-[#333] min-h-[160px] max-h-[320px]">
         <div className="px-4 py-2 bg-[#1A1A1A] flex items-center justify-between border-b border-[#333]">
           <span className="text-[9px] uppercase tracking-tighter text-gray-500 font-bold">Scene Graph</span>
-          <span className="text-[9px] text-gray-700 font-mono">{objects.length} obj · {groups.length} grp</span>
+          <span className="text-[9px] text-gray-700 font-mono" title="⌘/Ctrl+click to multi-select · right-click for options">{objects.length} obj · {groups.length} grp</span>
         </div>
         <div className="flex-1 overflow-y-auto p-2 space-y-0.5 bg-[#121212]">
           {sceneItems.map((item) => {
@@ -200,38 +212,71 @@ const Inspector = () => {
               const isGroupSel = selectedGroupId === group.id;
               const isCollapsed = collapsedGroups[group.id];
               return (
-                <div key={group.id}>
-                  <div
-                    className={`flex items-center justify-between px-2 py-1.5 rounded cursor-pointer transition-all ${isGroupSel ? 'bg-[#7C3AED]/20 border border-[#7C3AED]/30' : 'hover:bg-[#1E1E1E] border border-transparent'}`}
-                    onClick={() => setSelectedGroupId(group.id)}
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); toggleGroupCollapse(group.id); }}
-                        className="text-gray-600 hover:text-white"
-                      >
-                        {isCollapsed ? <ChevronRight size={10} /> : <ChevronDown size={10} />}
-                      </button>
-                      <Users size={9} className={isGroupSel ? 'text-[#7C3AED]' : 'text-gray-600'} />
-                      <span className={`text-[10px] font-bold ${isGroupSel ? 'text-[#7C3AED]' : 'text-gray-400'}`}>
-                        {group.name}
-                      </span>
-                      <span className="text-[8px] text-gray-700 font-mono">{members.length}</span>
-                    </div>
+                <div
+                  key={group.id}
+                  className={`flex items-center justify-between px-2 py-1.5 rounded cursor-pointer transition-all group/row ${isGroupSel ? 'bg-[#7C3AED]/20 border border-[#7C3AED]/30' : 'hover:bg-[#1E1E1E] border border-transparent'}`}
+                  onClick={() => setSelectedGroupId(group.id)}
+                  onContextMenu={(e) => showCtx(e, [
+                    { label: 'Ungroup (keep objects)', action: () => { saveHistory(); removeGroup(group.id); } },
+                    { label: 'Delete group + contents', danger: true, action: () => {
+                      saveHistory();
+                      objects.filter(o => o.groupId === group.id).forEach(o => deleteObject(o.id));
+                      removeGroup(group.id);
+                    }},
+                  ])}
+                >
+                  <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                    <button onClick={(e) => { e.stopPropagation(); toggleGroupCollapse(group.id); }} className="text-gray-600 hover:text-white flex-shrink-0">
+                      {isCollapsed ? <ChevronRight size={10} /> : <ChevronDown size={10} />}
+                    </button>
+                    <Users size={9} className={isGroupSel ? 'text-[#7C3AED]' : 'text-gray-600'} />
+                    <span className={`text-[10px] font-bold truncate ${isGroupSel ? 'text-[#7C3AED]' : 'text-gray-400'}`}>{group.name}</span>
+                    <span className="text-[8px] text-gray-700 font-mono flex-shrink-0">{members.length}</span>
                   </div>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); saveHistory(); objects.filter(o => o.groupId === group.id).forEach(o => deleteObject(o.id)); removeGroup(group.id); }}
+                    className="opacity-0 group-hover/row:opacity-100 text-gray-600 hover:text-red-500 transition-opacity flex-shrink-0"
+                    title="Delete group and all contents"
+                  >
+                    <Trash2 size={10} />
+                  </button>
                 </div>
               );
             }
 
             const { obj, indented } = item;
             const isObjSel = selectedObjectId === obj.id;
+            const isMultiSel = selectedObjectIds.includes(obj.id);
             return (
               <div
                 key={obj.id}
-                onClick={() => setSelectedObjectId(obj.id)}
-                className={`group flex items-center justify-between py-1.5 rounded-lg cursor-pointer transition-all ${
+                onClick={(e) => {
+                  if (e.metaKey || e.ctrlKey) {
+                    toggleSelectedObjectId(obj.id);
+                  } else {
+                    setSelectedObjectId(obj.id);
+                  }
+                }}
+                onContextMenu={(e) => {
+                  const ctxItems = [];
+                  if (selectedObjectIds.length > 1 && selectedObjectIds.includes(obj.id)) {
+                    ctxItems.push({ label: `Group ${selectedObjectIds.length} selected…`, action: () => {
+                      const name = prompt('Group name:');
+                      if (!name) return;
+                      saveHistory();
+                      const gid = addGroup(name);
+                      selectedObjectIds.forEach(id => setObjectGroup(id, gid));
+                    }});
+                  }
+                  if (obj.groupId) {
+                    ctxItems.push({ label: 'Remove from group', action: () => { saveHistory(); setObjectGroup(obj.id, null); } });
+                  }
+                  ctxItems.push({ label: 'Delete', danger: true, action: () => deleteObject(obj.id) });
+                  showCtx(e, ctxItems);
+                }}
+                className={`group/row flex items-center justify-between py-1.5 rounded-lg cursor-pointer transition-all ${
                   indented ? 'pl-6 pr-2' : 'px-2'
-                } ${isObjSel ? 'bg-[#7C3AED]/20 border border-[#7C3AED]/30' : 'hover:bg-[#222] border border-transparent'}`}
+                } ${isObjSel ? 'bg-[#7C3AED]/20 border border-[#7C3AED]/30' : isMultiSel ? 'bg-[#7C3AED]/10 border border-[#7C3AED]/20' : 'hover:bg-[#222] border border-transparent'}`}
               >
                 <div className="flex items-center gap-2 flex-1 min-w-0">
                   <button
@@ -240,13 +285,13 @@ const Inspector = () => {
                   >
                     {obj.visible ? <Eye size={10} /> : <EyeOff size={10} />}
                   </button>
-                  <span className={`text-[10px] font-medium truncate ${isObjSel ? 'text-white' : 'text-gray-500'}`}>
+                  <span className={`text-[10px] font-medium truncate ${isObjSel || isMultiSel ? 'text-white' : 'text-gray-500'}`}>
                     {obj.name}
                   </span>
                 </div>
                 <button
                   onClick={(e) => { e.stopPropagation(); deleteObject(obj.id); }}
-                  className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-500 transition-opacity flex-shrink-0"
+                  className="opacity-0 group-hover/row:opacity-100 text-gray-600 hover:text-red-500 transition-opacity flex-shrink-0"
                 >
                   <Trash2 size={10} />
                 </button>
@@ -278,26 +323,33 @@ const Inspector = () => {
               {objects.filter(o => o.groupId === currentGroup.id).length} parts
             </p>
 
-            {/* Group uniform scale */}
+            {/* Group uniform scale — live slider, 100% = original */}
             <div className="space-y-1.5">
-              <label className="text-[9px] text-gray-500 uppercase font-bold">Scale Group %</label>
-              <p className="text-[8px] text-gray-600 italic">-50 = half size · +100 = double size</p>
-              <div className="flex gap-2">
-                <input
-                  type="number"
-                  placeholder="e.g. -25"
-                  value={groupScalePct}
-                  onChange={e => setGroupScalePct(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') handleApplyGroupScale(); }}
-                  className="flex-1 bg-[#0F0F0F] border border-[#7C3AED]/30 focus:border-[#7C3AED] p-1.5 rounded text-[10px] outline-none font-mono text-white"
-                />
-                <button
-                  onClick={handleApplyGroupScale}
-                  className="bg-[#7C3AED] hover:brightness-110 text-white px-3 rounded text-[10px] font-bold transition-all"
-                >
-                  Apply
-                </button>
+              <div className="flex items-center justify-between">
+                <label className="text-[9px] text-gray-500 uppercase font-bold">Scale Group</label>
+                <span className="text-[10px] font-mono text-[#7C3AED]">{groupScalePct}%</span>
               </div>
+              <input
+                type="range" min="10" max="300" step="1"
+                value={groupScalePct}
+                onMouseDown={() => saveHistory()}
+                onChange={e => {
+                  const next = parseInt(e.target.value);
+                  const factor = next / groupScalePct;
+                  setGroupScalePct(next);
+                  scaleGroup(currentGroup.id, factor);
+                }}
+                className="w-full accent-[#7C3AED]"
+              />
+              <div className="flex justify-between text-[8px] text-gray-700">
+                <span>10%</span><span>100%</span><span>300%</span>
+              </div>
+              <button
+                onClick={() => { setGroupScalePct(100); }}
+                className="text-[8px] text-gray-600 hover:text-white transition-colors"
+              >
+                Reset to 100%
+              </button>
             </div>
           </section>
         )}
@@ -704,6 +756,26 @@ const Inspector = () => {
           </div>
         )}
       </div>
+
+      {/* Context menu */}
+      {ctxMenu && (
+        <div
+          ref={ctxRef}
+          className="fixed z-[9999] bg-[#1A1A1A] border border-[#333] rounded-xl shadow-2xl py-1 min-w-[160px]"
+          style={{ left: ctxMenu.x, top: ctxMenu.y }}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          {ctxMenu.items.map((item, i) => (
+            <button
+              key={i}
+              onClick={() => { item.action(); setCtxMenu(null); }}
+              className={`w-full text-left px-3 py-2 text-[10px] transition-colors ${item.danger ? 'text-red-400 hover:bg-red-500/10' : 'text-gray-300 hover:bg-[#333]'}`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
