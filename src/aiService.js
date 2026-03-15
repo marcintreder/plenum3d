@@ -140,7 +140,12 @@ function interpretResponse(parsed, log) {
 // ── Anthropic: two-stage (design → build) ────────────────────────────────────
 
 async function generateWithAnthropic(prompt, referenceImage, apiKey, log, model) {
-  const headers = { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' };
+  const headers = {
+    'Content-Type': 'application/json',
+    'x-api-key': apiKey,
+    'anthropic-version': '2023-06-01',
+    'anthropic-dangerous-direct-browser-access': 'true',
+  };
   const m = model || 'claude-sonnet-4-6';
 
   // Stage 1 — design
