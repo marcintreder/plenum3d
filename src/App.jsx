@@ -14,12 +14,16 @@ import CodeView from "./CodeView";
 import useStore from "./useStore";
 import useKeyboardShortcuts from "./useKeyboardShortcuts";
 import { generate3DModel } from "./aiService";
+import { Paperclip } from "lucide-react";
 
 const App = () => {
   const [isModalOpen, setModalOpen] = useState(false);
   const [isCodeViewOpen, setCodeViewOpen] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [keys, setKeys] = useState(() => JSON.parse(localStorage.getItem("3d_sculpt_keys") || "{}"));
+  const [refImage, setRefImage] = useState(null);
+  
+  const fileInputRef = React.useRef(null);
   
   const { 
     objects,
@@ -51,15 +55,25 @@ const App = () => {
       setGenerating(true);
       try {
         const ollamaUrl = keys["Ollama URL"] || "http://localhost:11434";
-        const newGeometry = await generate3DModel(prompt, ollamaUrl);
+        const newGeometry = await generate3DModel(prompt, refImage, ollamaUrl);
         setGeometry(newGeometry);
         setPrompt("");
+        setRefImage(null);
       } catch (error) {
         console.error("Generation failed", error);
         alert("Failed to generate model. Ensure Ollama is running and accessible.");
       } finally {
         setGenerating(false);
       }
+    }
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => setRefImage(event.target.result);
+      reader.readAsDataURL(file);
     }
   };
 
@@ -88,27 +102,10 @@ const App = () => {
         </div>
 
         <div className="flex flex-col gap-1">
-          <div className="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-2">Editor Mode</div>
-          <div className="grid grid-cols-2 gap-2">
-            <button 
-              id="object-mode-btn"
-              onClick={() => setEditMode('object')}
-              className={`p-2 rounded-lg text-xs font-bold transition-all ${
-                editMode === 'object' ? 'bg-[#7C3AED] text-white shadow-[0_0_15px_rgba(124,58,237,0.4)]' : 'bg-[#222] text-gray-400 hover:bg-[#333]'
-              }`}
-            >
-              Object
-            </button>
-            <button 
-              id="sculpt-mode-btn"
-              onClick={() => setEditMode('vertex')}
-              className={`p-2 rounded-lg text-xs font-bold transition-all ${
-                editMode === 'vertex' ? 'bg-[#06B6D4] text-white shadow-[0_0_15px_rgba(6,182,212,0.4)]' : 'bg-[#222] text-gray-400 hover:bg-[#333]'
-              }`}
-            >
-              Sculpt
-            </button>
-          </div>
+          <div className="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-2">Editor</div>
+          <button onClick={() => setModalOpen(true)} className="flex items-center gap-3 p-2 hover:bg-[#333] rounded-lg text-sm text-gray-400 hover:text-white transition-all">
+             <Settings size={16} /> Settings
+          </button>
         </div>
 
         <div className="flex flex-col gap-1 mt-4">
@@ -180,17 +177,24 @@ const App = () => {
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-full max-w-xl px-4 z-10 transition-all duration-300 transform hover:scale-[1.01]" onClick={(e) => e.stopPropagation()}>
           <div className="relative group">
             <input 
+              type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange}
+            />
+            <button className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white" onClick={() => fileInputRef.current.click()}>
+              <Paperclip size={16} />
+            </button>
+            <input 
               type="text" 
               placeholder={isGenerating ? "Synthesizing geometry..." : "AI Command: 'A vintage radio'"}
               disabled={isGenerating}
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={handleKeyDown}
-              className={`w-full bg-[#1A1A1A]/90 backdrop-blur-2xl border ${isGenerating ? 'border-[#7C3AED] shadow-[0_0_20px_rgba(124,58,237,0.3)] animate-pulse' : 'border-[#333] shadow-2xl'} p-5 rounded-3xl outline-none focus:border-[#7C3AED] transition-all text-sm pr-12 text-white font-medium`}
+              className={`w-full bg-[#1A1A1A]/90 backdrop-blur-2xl border ${isGenerating ? 'border-[#7C3AED] shadow-[0_0_20px_rgba(124,58,237,0.3)] animate-pulse' : 'border-[#333] shadow-2xl'} p-5 rounded-3xl outline-none focus:border-[#7C3AED] transition-all text-sm pl-12 pr-12 text-white font-medium`}
             />
             <div className={`absolute right-4 top-1/2 -translate-y-1/2 text-[10px] bg-[#333] px-2 py-1 rounded-md text-gray-400 font-mono transition-opacity duration-200 ${prompt ? 'opacity-100' : 'opacity-0'}`}>
               {isGenerating ? "..." : "⏎"}
             </div>
+            {refImage && <div className="absolute top-[-40px] left-4 w-8 h-8 rounded-lg overflow-hidden border border-[#7C3AED]"><img src={refImage} alt="Ref" /></div>}
           </div>
         </div>
       </div>
