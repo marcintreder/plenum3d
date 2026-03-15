@@ -2,6 +2,7 @@ import React, { useRef, useMemo, useEffect, useState } from 'react';
 import { PivotControls, Sphere, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import useStore from './useStore';
+import { getGridSnap } from './utils/GridManager';
 
 const EditableMesh = ({ object }) => {
   const meshRef = useRef();
@@ -125,7 +126,8 @@ const EditableMesh = ({ object }) => {
           const q = new THREE.Quaternion();
           const s = new THREE.Vector3();
           matrix.decompose(position, q, s);
-          updateObjectTransform(object.id, [position.x, position.y, position.z], [0,0,0], [1,1,1]);
+          const snapped = getGridSnap([position.x, position.y, position.z], 0.5);
+          updateObjectTransform(object.id, snapped, [0,0,0], [1,1,1]);
         }}
         depthTest={false}
         scale={0.75}
