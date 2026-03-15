@@ -10,14 +10,35 @@ const useStore = create((set, get) => ({
   history: [JSON.parse(JSON.stringify(initialObjects))],
   historyIndex: 0,
   selectedObjectId: null,
-  selectedJointIndex: null,
+  selectedJointIndex: null,   // = selectedVertexIndices[0] ?? null (kept for Inspector compat)
+  selectedVertexIndices: [],  // multi-select array
   editMode: 'object',
   orbitEnabled: true,
   isGenerating: false,
   exportRequested: false,
 
-  setEditMode: (mode) => set({ editMode: mode }),
+  setEditMode: (mode) => set({
+    editMode: mode,
+    // clear vertex selection when leaving vertex mode
+    ...(mode !== 'vertex' ? { selectedVertexIndices: [], selectedJointIndex: null } : {}),
+  }),
   setOrbitEnabled: (enabled) => set({ orbitEnabled: enabled }),
+
+  setSelectedVertexIndices: (indices) => set({
+    selectedVertexIndices: indices,
+    selectedJointIndex: indices[0] ?? null,
+  }),
+
+  // Batch-update multiple vertices in one store write (used by multi-vertex drag)
+  updateVertices: (objectId, updates) => set((state) => {
+    const updateMap = new Map(updates.map(u => [u.index, u.position]));
+    const newObjects = state.objects.map(obj => {
+      if (obj.id !== objectId) return obj;
+      const newVertices = obj.vertices.map((v, i) => updateMap.has(i) ? updateMap.get(i) : v);
+      return { ...obj, vertices: newVertices };
+    });
+    return { objects: newObjects };
+  }),
 
   saveHistory: () => {
     const { history, historyIndex, objects } = get();
@@ -50,6 +71,7 @@ const useStore = create((set, get) => ({
   setSelectedObjectId: (id) => set({
     selectedObjectId: id,
     selectedJointIndex: null,
+    selectedVertexIndices: [],
     editMode: id ? get().editMode : 'object',
   }),
   

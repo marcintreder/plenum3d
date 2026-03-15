@@ -12,7 +12,8 @@ const Inspector = () => {
     updateObject,
     deleteObject,
     selectedJointIndex,
-    setSelectedJointIndex,
+    selectedVertexIndices,
+    setSelectedVertexIndices,
     updateVertex,
     editMode,
     setEditMode,
@@ -22,7 +23,10 @@ const Inspector = () => {
 
   const [isOrtho, setIsOrtho] = useState(false);
   const selectedObject = objects.find(o => o?.id === selectedObjectId);
-  const selectedJoint = selectedObject && selectedJointIndex !== null ? selectedObject.vertices?.[selectedJointIndex] : null;
+  const selectedJoint  = selectedObject && selectedJointIndex !== null
+    ? selectedObject.vertices?.[selectedJointIndex]
+    : null;
+  const multiSelected  = selectedVertexIndices.length > 1;
 
   const handleVertexChange = (axis, value) => {
     if (!selectedObject || selectedJointIndex === null) return;
@@ -209,15 +213,25 @@ const Inspector = () => {
               {selectedJoint ? (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <div className="text-[9px] text-gray-400 font-mono bg-[#333]/30 px-2 py-0.5 rounded">Vertex #{selectedJointIndex}</div>
+                    <div className="text-[9px] text-gray-400 font-mono bg-[#333]/30 px-2 py-0.5 rounded">
+                      {multiSelected
+                        ? `${selectedVertexIndices.length} vertices`
+                        : `Vertex #${selectedJointIndex}`}
+                    </div>
                     <button
-                       onClick={() => setSelectedJointIndex(null)}
+                       onClick={() => setSelectedVertexIndices([])}
                        className="text-[9px] text-[#06B6D4] hover:underline"
                     >
                       Deselect
                     </button>
                   </div>
 
+                  {multiSelected && (
+                    <p className="text-[9px] text-gray-500 italic">
+                      Drag any selected vertex to move all {selectedVertexIndices.length} together.
+                      Showing coords for primary vertex.
+                    </p>
+                  )}
                   <div className="grid grid-cols-3 gap-2">
                     {['X', 'Y', 'Z'].map((axis, i) => (
                       <div key={axis} className="relative">
@@ -228,7 +242,7 @@ const Inspector = () => {
                           value={selectedJoint[i].toFixed(3)}
                           onChange={(e) => handleVertexChange(i, e.target.value)}
                           onBlur={() => saveHistory()}
-                          className="w-full bg-[#0F0F0F] border border-[#06B6D4]/30 pl-5 pr-1 py-1.5 rounded text-[10px] outline-none focus:border-[#06B6D4] font-mono text-white"
+                          className={`w-full bg-[#0F0F0F] border pl-5 pr-1 py-1.5 rounded text-[10px] outline-none font-mono text-white ${multiSelected ? 'border-[#333] opacity-60' : 'border-[#06B6D4]/30 focus:border-[#06B6D4]'}`}
                         />
                       </div>
                     ))}
