@@ -52,6 +52,8 @@ const App = () => {
   const [modelOverride, setModelOverride] = useState(null);
   const [lightOpen, setLightOpen] = useState(false);
   const [light, setLight] = useState({ ambientInt: 1.5, dirInt: 1.5, azimuth: 45, elevation: 45 });
+  const [renamingSceneId, setRenamingSceneId] = useState(null);
+  const [renameValue, setRenameValue] = useState('');
 
   const addLog = useCallback((type, msg) => {
     const ts = new Date().toLocaleTimeString('en-US', { hour12: false });
@@ -66,6 +68,13 @@ const App = () => {
   const {
     objects,
     groups,
+    scenes,
+    activeSceneId,
+    switchScene,
+    addScene,
+    duplicateScene,
+    deleteScene,
+    renameScene,
     setSelectedObjectId,
     isGenerating,
     setGenerating,
@@ -358,7 +367,64 @@ const App = () => {
       </div>
 
       {/* Main Viewport */}
-      <div className="flex-1 relative bg-black">
+      <div className="flex-1 relative bg-black flex flex-col">
+        {/* Scene Tabs */}
+        <div className="flex items-center bg-[#111] border-b border-[#222] px-2 gap-0.5 overflow-x-auto flex-shrink-0 h-9 select-none" style={{ scrollbarWidth: 'none' }}>
+          {scenes.map(scene => (
+            <div
+              key={scene.id}
+              onClick={() => switchScene(scene.id)}
+              onDoubleClick={() => { setRenamingSceneId(scene.id); setRenameValue(scene.name); }}
+              className={`group/tab relative flex items-center gap-1.5 px-3 h-full text-[10px] font-medium cursor-pointer transition-all flex-shrink-0 border-b-2 ${
+                scene.id === activeSceneId
+                  ? 'border-[#7C3AED] text-white bg-[#1A1A1A]'
+                  : 'border-transparent text-gray-500 hover:text-gray-300 hover:bg-[#1A1A1A]/50'
+              }`}
+            >
+              {renamingSceneId === scene.id ? (
+                <input
+                  autoFocus
+                  value={renameValue}
+                  onChange={e => setRenameValue(e.target.value)}
+                  onBlur={() => { renameScene(scene.id, renameValue || scene.name); setRenamingSceneId(null); }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') { renameScene(scene.id, renameValue || scene.name); setRenamingSceneId(null); }
+                    if (e.key === 'Escape') setRenamingSceneId(null);
+                  }}
+                  onClick={e => e.stopPropagation()}
+                  className="bg-[#333] border border-[#7C3AED]/60 rounded px-1 py-0.5 text-[10px] outline-none text-white w-24"
+                />
+              ) : (
+                <span>{scene.name}</span>
+              )}
+              {scenes.length > 1 && (
+                <button
+                  onClick={e => { e.stopPropagation(); deleteScene(scene.id); }}
+                  className="opacity-0 group-hover/tab:opacity-100 text-gray-600 hover:text-red-400 transition-opacity ml-0.5 leading-none"
+                  title="Delete scene"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          ))}
+          <button
+            onClick={() => addScene(`Scene ${scenes.length + 1}`)}
+            className="flex items-center justify-center w-7 h-7 my-auto ml-1 rounded text-gray-600 hover:text-white hover:bg-[#333] transition-all text-base leading-none flex-shrink-0"
+            title="Add scene"
+          >
+            +
+          </button>
+          <button
+            onClick={() => duplicateScene()}
+            className="flex items-center justify-center px-2 h-7 my-auto rounded text-[9px] text-gray-600 hover:text-white hover:bg-[#333] transition-all flex-shrink-0"
+            title="Duplicate current scene"
+          >
+            ⎘
+          </button>
+        </div>
+
+        <div className="flex-1 relative">
         <Canvas
           camera={{ position: [5, 5, 5], fov: 45 }}
           className="transition-opacity duration-500 ease-in-out"
@@ -391,6 +457,7 @@ const App = () => {
           <Grid infiniteGrid fadeDistance={50} sectionColor="#333" cellColor="#222" />
           <OrbitControls makeDefault enabled={orbitEnabled} />
         </Canvas>
+        </div>
 
         {/* Light Controls */}
         <div className="absolute top-4 right-4 z-10 flex flex-col items-end" onClick={e => e.stopPropagation()}>

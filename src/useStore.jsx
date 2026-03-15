@@ -10,9 +10,38 @@ import {
 
 const { objects: initialObjects, groups: initialGroups } = generateF1();
 
+const FIRST_SCENE_ID = 'scene-init';
+const initialScene = {
+  id: FIRST_SCENE_ID,
+  name: 'Scene 1',
+  objects: initialObjects,
+  groups: initialGroups,
+  history: [JSON.parse(JSON.stringify(initialObjects))],
+  historyIndex: 0,
+};
+
+// Helpers to save/load scene state
+const saveCurrentToScene = (state) =>
+  state.scenes.map(s =>
+    s.id === state.activeSceneId
+      ? { ...s, objects: state.objects, groups: state.groups, history: state.history, historyIndex: state.historyIndex }
+      : s
+  );
+
+const CLEAR_SELECTION = {
+  selectedObjectId: null,
+  selectedObjectIds: [],
+  selectedGroupId: null,
+  selectedJointIndex: null,
+  selectedVertexIndices: [],
+  editMode: 'object',
+};
+
 const useStore = create((set, get) => ({
   setState: (state, replace) => set(state, replace),
   getState: () => get(),
+  scenes: [initialScene],
+  activeSceneId: FIRST_SCENE_ID,
   objects: initialObjects,
   groups: initialGroups,
   history: [JSON.parse(JSON.stringify(initialObjects))],
@@ -460,7 +489,113 @@ const useStore = create((set, get) => ({
       selectedObjectId: selectedObjectId === id ? null : selectedObjectId,
       selectedJointIndex: null
     });
-  }
+  },
+
+  // ── Scenes ──────────────────────────────────────────────────────────────────
+
+  switchScene: (id) => {
+    const state = get();
+    if (id === state.activeSceneId) return;
+    const updatedScenes = saveCurrentToScene(state);
+    const next = updatedScenes.find(s => s.id === id);
+    if (!next) return;
+    set({
+      scenes: updatedScenes,
+      activeSceneId: id,
+      objects: next.objects,
+      groups: next.groups,
+      history: next.history,
+      historyIndex: next.historyIndex,
+      ...CLEAR_SELECTION,
+    });
+  },
+
+  addScene: (name) => {
+    const state = get();
+    const id = Math.random().toString(36).substr(2, 9);
+    const newScene = { id, name, objects: [], groups: [], history: [[]], historyIndex: 0 };
+    const updatedScenes = saveCurrentToScene(state);
+    set({
+      scenes: [...updatedScenes, newScene],
+      activeSceneId: id,
+      objects: [],
+      groups: [],
+      history: [[]],
+      historyIndex: 0,
+      ...CLEAR_SELECTION,
+    });
+    return id;
+  },
+
+  duplicateScene: () => {
+    const state = get();
+    const current = state.scenes.find(s => s.id === state.activeSceneId);
+    if (!current) return;
+    const id = Math.random().toString(36).substr(2, 9);
+    const snap = JSON.parse(JSON.stringify(state.objects));
+    // Re-assign all IDs to avoid conflicts
+    const idMap = {};
+    const newObjects = snap.map(o => {
+      const nid = Math.random().toString(36).substr(2, 9);
+      idMap[o.id] = nid;
+      return { ...o, id: nid };
+    });
+    const groupIdMap = {};
+    const newGroups = state.groups.map(g => {
+      const ngid = Math.random().toString(36).substr(2, 9);
+      groupIdMap[g.id] = ngid;
+      return { ...g, id: ngid };
+    });
+    const remappedObjects = newObjects.map(o => ({
+      ...o,
+      groupId: o.groupId ? (groupIdMap[o.groupId] ?? null) : null,
+    }));
+    const dupScene = {
+      id,
+      name: current.name + ' Copy',
+      objects: remappedObjects,
+      groups: newGroups,
+      history: [JSON.parse(JSON.stringify(remappedObjects))],
+      historyIndex: 0,
+    };
+    const updatedScenes = saveCurrentToScene(state);
+    const idx = updatedScenes.findIndex(s => s.id === state.activeSceneId);
+    const spliced = [...updatedScenes.slice(0, idx + 1), dupScene, ...updatedScenes.slice(idx + 1)];
+    set({
+      scenes: spliced,
+      activeSceneId: id,
+      objects: remappedObjects,
+      groups: newGroups,
+      history: dupScene.history,
+      historyIndex: 0,
+      ...CLEAR_SELECTION,
+    });
+  },
+
+  deleteScene: (id) => {
+    const state = get();
+    if (state.scenes.length <= 1) return;
+    const idx = state.scenes.findIndex(s => s.id === id);
+    const newScenes = state.scenes.filter(s => s.id !== id);
+    if (id !== state.activeSceneId) {
+      set({ scenes: newScenes });
+      return;
+    }
+    const next = newScenes[Math.max(0, idx - 1)];
+    set({
+      scenes: newScenes,
+      activeSceneId: next.id,
+      objects: next.objects,
+      groups: next.groups,
+      history: next.history,
+      historyIndex: next.historyIndex,
+      ...CLEAR_SELECTION,
+    });
+  },
+
+  renameScene: (id, name) => set(state => ({
+    scenes: state.scenes.map(s => s.id === id ? { ...s, name } : s),
+  })),
 }));
 
 export default useStore;
