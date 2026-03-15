@@ -1,28 +1,110 @@
-// System prompt for cloud models (can handle large outputs)
-const SYSTEM_PROMPT = `You are an expert 3D triangle mesh generator. Create a 3D object as a clean triangle mesh.
-Return ONLY a valid JSON object with these exact fields:
-- "vertices": flat array of numbers [x,y,z, x,y,z, ...]. The object must fit within a 2x2x2 unit cube. Center it at the origin (0,0,0). Y axis is up.
-- "indices": flat array of integers — every 3 values form one triangle. CRITICAL: every index must be >= 0 and < (vertices.length / 3). Use counter-clockwise winding order (determines which side is the front face).
-- "color": a realistic hex color for this specific object (e.g. "#228B22" for a tree, "#8B4513" for wood, "#C0C0C0" for metal)
-- "material": "standard", "physical", or "wireframe"
-Rules:
-- Aim for 40–150 triangles — enough detail to be recognizable but not overly complex
-- No two triangles may share the exact same 3 indices
-- No degenerate triangles (all 3 indices must be different)
-- No markdown, no explanation — only the raw JSON object`;
+import { buildPrimitiveMesh } from './utils/primitiveBuilder';
 
-// Simplified prompt for local Ollama — fewer vertices = much faster generation
-const OLLAMA_SYSTEM_PROMPT = `You are a 3D model generator. Create a simple low-poly 3D object.
-Return ONLY valid JSON with exactly these fields:
-- "vertices": flat array of numbers [x,y,z, x,y,z, ...] — keep under 60 vertices, fit within a 2-unit cube centered at origin
-- "indices": flat array of integers — groups of 3 form triangles. Every index must be >= 0 and < (vertices.length / 3)
-- "color": a hex color matching the object (e.g. "#228B22" for trees)
+// ── System prompts ────────────────────────────────────────────────────────────
+
+// Cloud models: describe object as composed primitives — much more reliable than raw vertices
+const SYSTEM_PROMPT_PARAMETRIC = `You are a 3D scene composer. When asked to create an object, describe it as a JSON structure of geometric primitives. You do NOT generate vertex coordinates — instead choose primitive shapes, sizes, and positions that together approximate the object.
+
+Return ONLY a valid JSON object:
+{
+  "name": "descriptive object name",
+  "parts": [
+    {
+      "label": "part name (e.g. trunk, wheel, roof)",
+      "type": "box" | "sphere" | "cylinder" | "cone",
+      "position": [x, y, z],
+      "size": [width, height, depth],
+      "color": "#RRGGBB"
+    }
+  ]
+}
+
+Rules:
+- Use 2–8 parts. Each part is one primitive.
+- box: rectangular block. size = [width, height, depth].
+- sphere: ball. size = [diameter, diameter, diameter].
+- cylinder: upright tube. size = [diameter, height, diameter].
+- cone: upright cone, point at top. size = [base_diameter, height, base_diameter].
+- position: center of part. Y axis is up. Keep the whole object within a 4×4×4 unit box centered at origin.
+- color: realistic hex color per part (e.g. "#228B22" for leaves, "#5C3317" for bark).
+- No markdown, no explanation — only the raw JSON object.
+
+Examples:
+- Tree → {"name":"Pine Tree","parts":[{"label":"trunk","type":"cylinder","position":[0,0.5,0],"size":[0.3,1,0.3],"color":"#5C3317"},{"label":"lower canopy","type":"cone","position":[0,1.8,0],"size":[1.4,1.6,1.4],"color":"#2D6B1A"},{"label":"upper canopy","type":"cone","position":[0,2.8,0],"size":[1.0,1.4,1.0],"color":"#37851F"}]}
+- House → {"name":"House","parts":[{"label":"walls","type":"box","position":[0,0.6,0],"size":[2,1.2,2],"color":"#D2B48C"},{"label":"roof","type":"cone","position":[0,1.7,0],"size":[2.6,1.0,2.6],"color":"#8B2020"},{"label":"door","type":"box","position":[0,0.1,1.01],"size":[0.4,0.8,0.05],"color":"#5C3317"}]}`;
+
+// Ollama: simplified parametric (shorter = faster for local models)
+const OLLAMA_SYSTEM_PROMPT_PARAMETRIC = `You are a 3D model builder. Return ONLY a JSON object with primitive parts.
+
+Format:
+{"name":"object name","parts":[{"label":"part","type":"box"|"sphere"|"cylinder"|"cone","position":[x,y,z],"size":[w,h,d],"color":"#hex"}]}
+
+Use 2–5 parts. Keep within 4 units of origin. Y is up.
+- box=[width,height,depth], sphere=[diam,diam,diam], cylinder=[diam,height,diam], cone=[base_diam,height,base_diam]
+- Realistic colors. No explanation, only JSON.`;
+
+// Fallback raw-vertex prompts (used if model ignores parametric format)
+const SYSTEM_PROMPT_RAW = `You are an expert 3D triangle mesh generator. Create a 3D object as a clean triangle mesh.
+Return ONLY a valid JSON object:
+- "vertices": flat array [x,y,z, x,y,z, ...]. Fit within a 2×2×2 unit cube at origin. Y up.
+- "indices": flat array — every 3 ints form one triangle. Every index must be >= 0 and < (vertices.length/3). Counter-clockwise winding.
+- "color": realistic hex color for this object
+- "material": "standard", "physical", or "wireframe"
+40–150 triangles. No degenerate triangles. Only the JSON object.`;
+
+const OLLAMA_SYSTEM_PROMPT_RAW = `You are a 3D model generator. Return ONLY valid JSON:
+- "vertices": flat [x,y,z,...] array, under 60 vertices, fit in 2-unit cube
+- "indices": flat int array, groups of 3 = triangles, every index < vertices.length/3
+- "color": hex color
 - "material": "standard"
-Simple blocky geometry only. No explanation, only JSON.`;
+No explanation, only JSON.`;
+
+// ── Prompt builder ────────────────────────────────────────────────────────────
 
 function buildPrompt(prompt, hasImage) {
   return `Create a 3D model for: ${prompt}.${hasImage ? ' Model it closely after the reference image provided.' : ''}`;
 }
+
+// ── Geometry from LLM parts ───────────────────────────────────────────────────
+
+function formatPartsResult(data) {
+  const parts = (data.parts || [])
+    .map(part => {
+      const type = part.type || 'box';
+      const size = Array.isArray(part.size) && part.size.length >= 3
+        ? part.size.map(Number)
+        : [1, 1, 1];
+      const { vertices, indices } = buildPrimitiveMesh(type, size);
+      if (!vertices.length || !indices.length) return null;
+      return {
+        label:    part.label || type,
+        vertices,
+        indices,
+        color:    part.color || '#7C3AED',
+        materialType: 'standard',
+        position: (part.position || [0, 0, 0]).map(Number),
+      };
+    })
+    .filter(Boolean);
+  return { isParts: true, name: data.name || 'Generated Object', parts };
+}
+
+// Detect whether the parsed response is parametric or raw-vertex and route accordingly
+function interpretResponse(parsed, log) {
+  if (parsed && Array.isArray(parsed.parts) && parsed.parts.length > 0) {
+    const result = formatPartsResult(parsed);
+    log('success', `Built ${result.parts.length}-part model: ${result.parts.map(p => p.label).join(', ')}`);
+    return result;
+  }
+  // Fallback: model returned raw vertices
+  if (parsed && (parsed.vertices || parsed.indices)) {
+    log('info', 'Response used raw-vertex format — parsing geometry…');
+    return { isParts: false, ...formatResult(parsed) };
+  }
+  throw new Error('Response did not contain parts or vertices.');
+}
+
+// ── Provider functions ────────────────────────────────────────────────────────
 
 async function generateWithAnthropic(prompt, referenceImage, apiKey, log) {
   log('info', 'Sending request to Anthropic (claude-opus-4-6)…');
@@ -36,52 +118,38 @@ async function generateWithAnthropic(prompt, referenceImage, apiKey, log) {
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
+    headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
     body: JSON.stringify({
       model: 'claude-opus-4-6',
       max_tokens: 4096,
-      system: SYSTEM_PROMPT,
+      system: SYSTEM_PROMPT_PARAMETRIC,
       messages: [{ role: 'user', content }],
     }),
   });
   if (!res.ok) throw new Error(`Anthropic error: ${res.statusText}`);
-  log('info', 'Response received — parsing geometry…');
+  log('info', 'Response received — parsing…');
   const data = await res.json();
-  const parsed = JSON.parse(data.content[0].text);
-  log('success', 'Geometry parsed from Anthropic response');
-  return parsed;
+  return interpretResponse(JSON.parse(data.content[0].text), log);
 }
 
 async function generateWithOpenAI(prompt, referenceImage, apiKey, log) {
   const model = referenceImage ? 'gpt-4o' : 'gpt-4o-mini';
   log('info', `Sending request to OpenAI (${model})…`);
-  const messages = [{ role: 'system', content: SYSTEM_PROMPT }];
+  const messages = [{ role: 'system', content: SYSTEM_PROMPT_PARAMETRIC }];
   const userContent = [];
-  if (referenceImage) {
-    userContent.push({ type: 'image_url', image_url: { url: referenceImage } });
-  }
+  if (referenceImage) userContent.push({ type: 'image_url', image_url: { url: referenceImage } });
   userContent.push({ type: 'text', text: buildPrompt(prompt, !!referenceImage) });
   messages.push({ role: 'user', content: userContent });
 
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model,
-      messages,
-      response_format: { type: 'json_object' },
-    }),
+    body: JSON.stringify({ model, messages, response_format: { type: 'json_object' } }),
   });
   if (!res.ok) throw new Error(`OpenAI error: ${res.statusText}`);
-  log('info', 'Response received — parsing geometry…');
+  log('info', 'Response received — parsing…');
   const data = await res.json();
-  const parsed = JSON.parse(data.choices[0].message.content);
-  log('success', 'Geometry parsed from OpenAI response');
-  return parsed;
+  return interpretResponse(JSON.parse(data.choices[0].message.content), log);
 }
 
 async function generateWithGemini(prompt, referenceImage, apiKey, log) {
@@ -100,18 +168,16 @@ async function generateWithGemini(prompt, referenceImage, apiKey, log) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+        system_instruction: { parts: [{ text: SYSTEM_PROMPT_PARAMETRIC }] },
         contents: [{ parts }],
         generationConfig: { response_mime_type: 'application/json' },
       }),
     }
   );
   if (!res.ok) throw new Error(`Gemini error: ${res.statusText}`);
-  log('info', 'Response received — parsing geometry…');
+  log('info', 'Response received — parsing…');
   const data = await res.json();
-  const parsed = JSON.parse(data.candidates[0].content.parts[0].text);
-  log('success', 'Geometry parsed from Gemini response');
-  return parsed;
+  return interpretResponse(JSON.parse(data.candidates[0].content.parts[0].text), log);
 }
 
 async function generateWithOllama(prompt, referenceImage, ollamaUrl, modelOverride, log) {
@@ -121,14 +187,13 @@ async function generateWithOllama(prompt, referenceImage, ollamaUrl, modelOverri
   log('warn', 'Local models can take 1–3 minutes. Console will update when done.');
 
   const controller = new AbortController();
-  // 3-minute timeout — local models are slow but this is generous enough
   const timeout = setTimeout(() => controller.abort(), 180_000);
 
   try {
     const body = {
       model: modelName,
       prompt: buildPrompt(prompt, !!referenceImage),
-      system: OLLAMA_SYSTEM_PROMPT,
+      system: OLLAMA_SYSTEM_PROMPT_PARAMETRIC,
       stream: false,
       format: 'json',
     };
@@ -143,16 +208,22 @@ async function generateWithOllama(prompt, referenceImage, ollamaUrl, modelOverri
     if (!res.ok) throw new Error(`Ollama error: ${res.statusText}`);
     log('info', 'Ollama response received — parsing…');
     const data = await res.json();
-    // data.response is a JSON string when format:'json' is used
     const parsed = typeof data.response === 'string' ? JSON.parse(data.response) : data.response;
-    log('success', 'Geometry parsed from Ollama response');
-    return parsed;
+    return interpretResponse(parsed, log);
   } finally {
     clearTimeout(timeout);
   }
 }
 
-export const generate3DModel = async (prompt, referenceImage = null, keys = {}, onLog = null) => {
+// ── Main export ───────────────────────────────────────────────────────────────
+
+export const generate3DModel = async (
+  prompt,
+  referenceImage = null,
+  keys = {},
+  onLog = null,
+  providerOverride = null,
+) => {
   const log = (type, msg) => onLog?.(type, msg);
   const { Anthropic, OpenAI, Gemini } = keys;
   const ollamaUrl = keys['Ollama URL'] || 'http://localhost:11434';
@@ -160,13 +231,21 @@ export const generate3DModel = async (prompt, referenceImage = null, keys = {}, 
 
   try {
     let result;
-    if (Anthropic)   result = await generateWithAnthropic(prompt, referenceImage, Anthropic, log);
-    else if (OpenAI) result = await generateWithOpenAI(prompt, referenceImage, OpenAI, log);
-    else if (Gemini) result = await generateWithGemini(prompt, referenceImage, Gemini, log);
-    else             result = await generateWithOllama(prompt, referenceImage, ollamaUrl, ollamaGenerateModel, log);
-    const formatted = formatResult(result);
-    log('success', `Done — ${formatted.vertices.length} vertices, ${formatted.indices.length} indices`);
-    return formatted;
+    if      (providerOverride === 'Anthropic' || (!providerOverride && Anthropic))
+      result = await generateWithAnthropic(prompt, referenceImage, Anthropic, log);
+    else if (providerOverride === 'OpenAI'    || (!providerOverride && OpenAI))
+      result = await generateWithOpenAI(prompt, referenceImage, OpenAI, log);
+    else if (providerOverride === 'Gemini'    || (!providerOverride && Gemini))
+      result = await generateWithGemini(prompt, referenceImage, Gemini, log);
+    else
+      result = await generateWithOllama(prompt, referenceImage, ollamaUrl, ollamaGenerateModel, log);
+
+    if (result.isParts) {
+      log('success', `Done — ${result.parts.length} parts assembled`);
+    } else {
+      log('success', `Done — ${result.vertices.length} vertices, ${result.indices.length} indices`);
+    }
+    return result;
   } catch (error) {
     if (error.name === 'AbortError') {
       log('error', 'Ollama timed out after 3 minutes. Try a simpler prompt or a faster model.');
@@ -183,8 +262,9 @@ export const generate3DModel = async (prompt, referenceImage = null, keys = {}, 
   }
 };
 
-// Handles both flat [x,y,z,x,y,z,...] and nested [[x,y,z],[x,y,z],...] vertex formats.
-// Also validates indices and normalises scale so generated objects are always ~2 units wide.
+// ── Geometry helpers ──────────────────────────────────────────────────────────
+
+// Raw vertex fallback: validate indices, auto-scale to fit 2-unit cube
 function formatResult(result) {
   const raw = result.vertices || [];
   let verts;
@@ -194,37 +274,30 @@ function formatResult(result) {
   } else {
     verts = [];
     for (let i = 0; i + 2 < raw.length; i += 3) {
-      verts.push([Number(raw[i]) || 0, Number(raw[i+1]) || 0, Number(raw[i+2]) || 0]);
+      verts.push([Number(raw[i]) || 0, Number(raw[i + 1]) || 0, Number(raw[i + 2]) || 0]);
     }
   }
 
-  // ── Auto-scale: normalise so the longest axis fits in 2 units ──────────────
+  // Auto-scale: normalise so the longest axis fits in 2 units
   if (verts.length > 0) {
     let maxExtent = 0;
-    for (const v of verts) {
-      maxExtent = Math.max(maxExtent, Math.abs(v[0]), Math.abs(v[1]), Math.abs(v[2]));
-    }
+    for (const v of verts) maxExtent = Math.max(maxExtent, Math.abs(v[0]), Math.abs(v[1]), Math.abs(v[2]));
     if (maxExtent > 2 || maxExtent < 0.15) {
       const s = 1.0 / Math.max(maxExtent, 0.001);
       verts = verts.map(v => [v[0] * s, v[1] * s, v[2] * s]);
     }
   }
 
-  // ── Index validation: drop out-of-bounds and degenerate triangles ──────────
+  // Validate indices: drop out-of-bounds and degenerate triangles
   const vCount = verts.length;
   const rawIdx = result.indices || [];
   const cleanIdx = [];
   for (let i = 0; i + 2 < rawIdx.length; i += 3) {
     const a = rawIdx[i], b = rawIdx[i + 1], c = rawIdx[i + 2];
     if (a < 0 || b < 0 || c < 0 || a >= vCount || b >= vCount || c >= vCount) continue;
-    if (a === b || b === c || a === c) continue; // degenerate
+    if (a === b || b === c || a === c) continue;
     cleanIdx.push(a, b, c);
   }
 
-  return {
-    vertices: verts,
-    indices: cleanIdx,
-    color: result.color || '#7C3AED',
-    materialType: result.material || 'standard',
-  };
+  return { isParts: false, vertices: verts, indices: cleanIdx, color: result.color || '#7C3AED', materialType: result.material || 'standard' };
 }

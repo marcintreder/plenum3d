@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useMemo } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Grid } from "@react-three/drei";
 import {
@@ -28,6 +28,7 @@ const App = () => {
   const [ollamaModelsFetching, setOllamaModelsFetching] = useState(false);
   const [consoleLogs, setConsoleLogs] = useState([]);
   const [consoleOpen, setConsoleOpen] = useState(false);
+  const [providerOverride, setProviderOverride] = useState(null);
 
   const addLog = useCallback((type, msg) => {
     const ts = new Date().toLocaleTimeString('en-US', { hour12: false });
@@ -46,8 +47,11 @@ const App = () => {
     isGenerating,
     setGenerating,
     setGeometry,
+    addObjects,
     setExportRequested,
     addPrimitive,
+    deleteObject,
+    removeGroup,
     editMode,
     setEditMode,
     orbitEnabled,
@@ -63,6 +67,16 @@ const App = () => {
     addGroup,
     setObjectGroup,
   } = useStore();
+
+  // Available providers — Auto plus any configured ones
+  const providerOptions = useMemo(() => {
+    const opts = [{ id: null, label: 'Auto' }];
+    if (keys.Anthropic) opts.push({ id: 'Anthropic', label: 'Claude' });
+    if (keys.OpenAI)    opts.push({ id: 'OpenAI',    label: 'GPT-4o' });
+    if (keys.Gemini)    opts.push({ id: 'Gemini',    label: 'Gemini' });
+    opts.push({ id: 'Ollama', label: 'Ollama' });
+    return opts;
+  }, [keys]);
 
   // Activate global shortcuts
   useKeyboardShortcuts();
@@ -146,6 +160,36 @@ const App = () => {
         targets.forEach(obj => setObjectGroup(obj.id, gid));
         break;
       }
+      case 'ungroup_objects': {
+        const t = (input.target || '').toLowerCase().trim();
+        const grp = groups.find(g => g.name.toLowerCase().includes(t) || t.includes(g.name.toLowerCase()));
+        if (grp) removeGroup(grp.id);
+        break;
+      }
+      case 'rotate_objects': {
+        const axis = input.axis || 'y';
+        const rad = ((input.degrees || 0) * Math.PI) / 180;
+        targets.forEach(obj => {
+          const r = obj.rotation || [0, 0, 0];
+          updateObject(obj.id, {
+            rotation: [
+              r[0] + (axis === 'x' ? rad : 0),
+              r[1] + (axis === 'y' ? rad : 0),
+              r[2] + (axis === 'z' ? rad : 0),
+            ],
+          });
+        });
+        break;
+      }
+      case 'delete_objects':
+        targets.forEach(obj => deleteObject(obj.id));
+        break;
+      case 'add_primitive': {
+        addPrimitive(input.primitive_type || 'cube');
+        const newId = useStore.getState().selectedObjectId;
+        if (newId && input.color) updateObject(newId, { color: input.color });
+        break;
+      }
       default:
         console.warn('Unknown agent tool:', tool);
     }
@@ -161,7 +205,7 @@ const App = () => {
       if (!consoleOpen) setConsoleOpen(true);
       try {
         const { objects: objs, groups: grps } = useStore.getState();
-        const ops = await executeAgentCommand(prompt, { objects: objs, groups: grps }, keys, addLog);
+        const ops = await executeAgentCommand(prompt, { objects: objs, groups: grps }, keys, addLog, providerOverride);
         if (ops.length === 0) {
           setAgentFeedback('No matching operations found.');
         } else {
@@ -184,8 +228,12 @@ const App = () => {
     setConsoleLogs([]);
     if (!consoleOpen) setConsoleOpen(true);
     try {
-      const newGeometry = await generate3DModel(prompt, refImage, keys, addLog);
-      setGeometry(newGeometry);
+      const newGeometry = await generate3DModel(prompt, refImage, keys, addLog, providerOverride);
+      if (newGeometry.isParts) {
+        addObjects(newGeometry.parts, newGeometry.name);
+      } else {
+        setGeometry(newGeometry);
+      }
       setPrompt("");
       setRefImage(null);
     } catch (error) {
@@ -335,6 +383,25 @@ const App = () => {
               <Terminal size={10} /> Console
             </button>
           </div>
+
+          {/* Provider selector pills */}
+          {providerOptions.length > 2 && (
+            <div className="flex justify-center mb-2 gap-1 flex-wrap">
+              {providerOptions.map(p => (
+                <button
+                  key={String(p.id)}
+                  onClick={() => setProviderOverride(p.id)}
+                  className={`px-2 py-0.5 rounded-full text-[9px] font-bold transition-all ${
+                    providerOverride === p.id
+                      ? 'bg-[#333] text-white border border-[#666]'
+                      : 'bg-transparent text-gray-600 border border-[#222] hover:text-gray-400'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Feedback toast */}
           {agentFeedback && (

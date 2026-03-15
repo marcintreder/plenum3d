@@ -235,6 +235,45 @@ const useStore = create((set, get) => ({
   setGenerating: (isGenerating) => set({ isGenerating }),
   setExportRequested: (exportRequested) => set({ exportRequested }),
 
+  // Add multiple parts as a named group (used by parametric generation)
+  addObjects: (parts, groupName = 'Generated Object') => {
+    const state = get();
+    // Compute spawn X to the right of the existing scene
+    let spawnX = 3;
+    if (state.objects.length > 0) {
+      let maxX = -Infinity;
+      for (const obj of state.objects) {
+        const px = obj.position?.[0] ?? 0;
+        for (const v of (obj.vertices || [])) maxX = Math.max(maxX, px + v[0]);
+      }
+      if (maxX > -Infinity) spawnX = maxX + 2;
+    }
+    const groupId = Math.random().toString(36).substr(2, 9);
+    const newObjects = parts.map(part => ({
+      id: Math.random().toString(36).substr(2, 9),
+      name: part.label || 'Part',
+      vertices: part.vertices,
+      indices: part.indices,
+      color: part.color || '#7C3AED',
+      materialType: part.materialType || 'standard',
+      metalness: 0.5,
+      roughness: 0.5,
+      visible: true,
+      position: [spawnX + (part.position?.[0] ?? 0), part.position?.[1] ?? 0, part.position?.[2] ?? 0],
+      rotation: [0, 0, 0],
+      scale: [1, 1, 1],
+      groupId,
+    }));
+    set(s => ({
+      objects: [...s.objects, ...newObjects],
+      groups: [...s.groups, { id: groupId, name: groupName }],
+      selectedObjectId: newObjects[0]?.id || null,
+      selectedGroupId: groupId,
+      selectedObjectIds: newObjects.map(o => o.id),
+      selectedJointIndex: null,
+    }));
+  },
+
   setGeometry: (data) => set((state) => {
     if (Array.isArray(data)) {
       return { objects: data, selectedObjectId: data[0]?.id || null, selectedJointIndex: null };
