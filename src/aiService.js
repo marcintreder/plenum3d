@@ -1,20 +1,24 @@
 // System prompt for cloud models (can handle large outputs)
-const SYSTEM_PROMPT = `You are an expert 3D generative model. Create a detailed 3D object.
-Return ONLY a JSON object with:
-- "vertices": flat array of floats [x,y,z,x,y,z,...]
-- "indices": array of integers for triangle faces
-- "color": hex color string (e.g. "#FF0000")
+const SYSTEM_PROMPT = `You are an expert 3D triangle mesh generator. Create a 3D object as a clean triangle mesh.
+Return ONLY a valid JSON object with these exact fields:
+- "vertices": flat array of numbers [x,y,z, x,y,z, ...]. The object must fit within a 2x2x2 unit cube. Center it at the origin (0,0,0). Y axis is up.
+- "indices": flat array of integers — every 3 values form one triangle. CRITICAL: every index must be >= 0 and < (vertices.length / 3). Use counter-clockwise winding order (determines which side is the front face).
+- "color": a realistic hex color for this specific object (e.g. "#228B22" for a tree, "#8B4513" for wood, "#C0C0C0" for metal)
 - "material": "standard", "physical", or "wireframe"
-Be as detailed as possible. No other text, only JSON.`;
+Rules:
+- Aim for 40–150 triangles — enough detail to be recognizable but not overly complex
+- No two triangles may share the exact same 3 indices
+- No degenerate triangles (all 3 indices must be different)
+- No markdown, no explanation — only the raw JSON object`;
 
 // Simplified prompt for local Ollama — fewer vertices = much faster generation
 const OLLAMA_SYSTEM_PROMPT = `You are a 3D model generator. Create a simple low-poly 3D object.
 Return ONLY valid JSON with exactly these fields:
-- "vertices": flat array of numbers [x,y,z,x,y,z,...] — keep it under 60 vertices, use simple shapes
-- "indices": array of integers defining triangles
-- "color": a hex color string like "#FF0000"
+- "vertices": flat array of numbers [x,y,z, x,y,z, ...] — keep under 60 vertices, fit within a 2-unit cube centered at origin
+- "indices": flat array of integers — groups of 3 form triangles. Every index must be >= 0 and < (vertices.length / 3)
+- "color": a hex color matching the object (e.g. "#228B22" for trees)
 - "material": "standard"
-Simple blocky geometry is fine. Fewer vertices means faster output. No explanation, only JSON.`;
+Simple blocky geometry only. No explanation, only JSON.`;
 
 function buildPrompt(prompt, hasImage) {
   return `Create a 3D model for: ${prompt}.${hasImage ? ' Model it closely after the reference image provided.' : ''}`;
@@ -179,25 +183,47 @@ export const generate3DModel = async (prompt, referenceImage = null, keys = {}, 
   }
 };
 
-// Handles both flat [x,y,z,x,y,z,...] and nested [[x,y,z],[x,y,z],...] vertex formats
+// Handles both flat [x,y,z,x,y,z,...] and nested [[x,y,z],[x,y,z],...] vertex formats.
+// Also validates indices and normalises scale so generated objects are always ~2 units wide.
 function formatResult(result) {
   const raw = result.vertices || [];
-  let nestedVertices;
+  let verts;
 
   if (raw.length > 0 && Array.isArray(raw[0])) {
-    // Already nested — use as-is (but ensure each entry is exactly [x,y,z])
-    nestedVertices = raw.map(v => [Number(v[0]) || 0, Number(v[1]) || 0, Number(v[2]) || 0]);
+    verts = raw.map(v => [Number(v[0]) || 0, Number(v[1]) || 0, Number(v[2]) || 0]);
   } else {
-    // Flat float array — group into triples
-    nestedVertices = [];
+    verts = [];
     for (let i = 0; i + 2 < raw.length; i += 3) {
-      nestedVertices.push([Number(raw[i]) || 0, Number(raw[i+1]) || 0, Number(raw[i+2]) || 0]);
+      verts.push([Number(raw[i]) || 0, Number(raw[i+1]) || 0, Number(raw[i+2]) || 0]);
     }
   }
 
+  // ── Auto-scale: normalise so the longest axis fits in 2 units ──────────────
+  if (verts.length > 0) {
+    let maxExtent = 0;
+    for (const v of verts) {
+      maxExtent = Math.max(maxExtent, Math.abs(v[0]), Math.abs(v[1]), Math.abs(v[2]));
+    }
+    if (maxExtent > 2 || maxExtent < 0.15) {
+      const s = 1.0 / Math.max(maxExtent, 0.001);
+      verts = verts.map(v => [v[0] * s, v[1] * s, v[2] * s]);
+    }
+  }
+
+  // ── Index validation: drop out-of-bounds and degenerate triangles ──────────
+  const vCount = verts.length;
+  const rawIdx = result.indices || [];
+  const cleanIdx = [];
+  for (let i = 0; i + 2 < rawIdx.length; i += 3) {
+    const a = rawIdx[i], b = rawIdx[i + 1], c = rawIdx[i + 2];
+    if (a < 0 || b < 0 || c < 0 || a >= vCount || b >= vCount || c >= vCount) continue;
+    if (a === b || b === c || a === c) continue; // degenerate
+    cleanIdx.push(a, b, c);
+  }
+
   return {
-    vertices: nestedVertices,
-    indices: result.indices || [],
+    vertices: verts,
+    indices: cleanIdx,
     color: result.color || '#7C3AED',
     materialType: result.material || 'standard',
   };

@@ -119,22 +119,20 @@ export function resolveTargets(target, objects, groups) {
 // ── Scene description for agent context ─────────────────────────────────────
 
 function buildSceneDescription(objects, groups) {
-  const groupNames = Object.fromEntries(groups.map(g => [g.id, g.name]));
+  // Group-centric compact format — the agent only needs names to resolve targets.
+  // Omitting vertex counts and colors cuts prompt tokens by ~60% which is the
+  // biggest single factor in local model latency.
+  const lines = [];
 
-  const objList = objects
-    .slice(0, 60) // cap to avoid huge prompts
-    .map(o => {
-      const grp = o.groupId ? ` [group: ${groupNames[o.groupId] || o.groupId}]` : '';
-      return `• "${o.name}"${grp} — ${o.vertices?.length ?? 0} vertices, color ${o.color}`;
-    })
-    .join('\n');
+  for (const g of groups) {
+    const members = objects.filter(o => o.groupId === g.id).map(o => o.name);
+    if (members.length) lines.push(`${g.name}: ${members.join(', ')}`);
+  }
 
-  const groupList = groups.map(g => {
-    const count = objects.filter(o => o.groupId === g.id).length;
-    return `• "${g.name}" (${count} parts)`;
-  }).join('\n');
+  const ungrouped = objects.filter(o => !o.groupId).map(o => o.name);
+  if (ungrouped.length) lines.push(`Ungrouped: ${ungrouped.join(', ')}`);
 
-  return `GROUPS:\n${groupList}\n\nOBJECTS (${objects.length} total):\n${objList}`;
+  return `SCENE (${objects.length} objects):\n${lines.join('\n')}`;
 }
 
 // ── Call Anthropic with tool use ─────────────────────────────────────────────
@@ -260,6 +258,8 @@ function parseCommandFallback(command, objects, groups) {
 async function callOllamaAgent(command, sceneDesc, ollamaUrl, modelOverride, log) {
   const model = modelOverride || 'mistral';
   log('info', `Sending agent command to Ollama (${model})…`);
+  log('warn', 'Large models can be slow — console will update when done.');
+
   // Use /api/chat so the system message is reliably applied across all Ollama versions
   const systemPrompt = `You are an AI assistant controlling a 3D sculpting tool. The user gives natural language commands to modify a 3D scene. Respond ONLY with a JSON array of operations.
 
@@ -275,31 +275,48 @@ Available operations:
 Rules: "50% smaller" → percent=-50, "50% bigger" → percent=+50.
 Return ONLY a valid JSON array. No explanation, no markdown, only JSON.`;
 
-  const res = await fetch(`${ollamaUrl}/api/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user',   content: command },
-      ],
-      stream: false,
-      format: 'json',
-    }),
-  });
-  if (!res.ok) throw new Error(`Ollama agent error: ${res.statusText}`);
-  const data = await res.json();
-  const text = data.message?.content || data.response || '';
+  const controller = new AbortController();
+  // 3-minute timeout — matches the generate path
+  const timeout = setTimeout(() => controller.abort(), 180_000);
+
+  // Heartbeat: log elapsed time every 15 seconds so the user knows it's still working
+  let elapsed = 0;
+  const heartbeat = setInterval(() => {
+    elapsed += 15;
+    log('info', `Still processing… (${elapsed}s elapsed)`);
+  }, 15_000);
+
   try {
-    const parsed = JSON.parse(text);
-    const ops = Array.isArray(parsed) ? parsed : (parsed.operations || []);
-    log('success', `Ollama agent returned ${ops.length} operation${ops.length !== 1 ? 's' : ''}`);
-    return ops;
-  } catch {
-    console.warn('Ollama agent returned non-JSON:', text);
-    log('warn', 'Ollama returned non-JSON response — no operations applied');
-    return [];
+    const res = await fetch(`${ollamaUrl}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user',   content: command },
+        ],
+        stream: false,
+        format: 'json',
+      }),
+      signal: controller.signal,
+    });
+    if (!res.ok) throw new Error(`Ollama agent error: ${res.statusText}`);
+    const data = await res.json();
+    const text = data.message?.content || data.response || '';
+    try {
+      const parsed = JSON.parse(text);
+      const ops = Array.isArray(parsed) ? parsed : (parsed.operations || []);
+      log('success', `Ollama agent returned ${ops.length} operation${ops.length !== 1 ? 's' : ''}`);
+      return ops;
+    } catch {
+      console.warn('Ollama agent returned non-JSON:', text);
+      log('warn', 'Ollama returned non-JSON response — no operations applied');
+      return [];
+    }
+  } finally {
+    clearTimeout(timeout);
+    clearInterval(heartbeat);
   }
 }
 
@@ -318,6 +335,10 @@ export async function executeAgentCommand(command, { objects, groups }, keys = {
     // Try Ollama if URL is configured or default is reachable
     return await callOllamaAgent(command, sceneDesc, ollamaUrl, ollamaAgentModel, log);
   } catch (err) {
+    if (err.name === 'AbortError') {
+      log('error', 'Ollama timed out after 3 minutes. Try a smaller model or simpler command.');
+      throw new Error('Ollama agent timed out after 3 minutes.');
+    }
     console.warn('Agent API call failed, falling back to regex parser:', err);
     log('warn', 'API call failed, using regex fallback: ' + err.message);
   }

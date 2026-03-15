@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Grid } from "@react-three/drei";
 import {
@@ -88,6 +88,11 @@ const App = () => {
       setOllamaModelsFetching(false);
     }
   };
+
+  // Auto-fetch models whenever Settings opens so the list is always current
+  useEffect(() => {
+    if (isModalOpen) fetchOllamaModels();
+  }, [isModalOpen]);
 
   // Execute a parsed agent operation against the store
   const executeOp = ({ tool, input }) => {

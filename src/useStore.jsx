@@ -239,6 +239,16 @@ const useStore = create((set, get) => ({
     if (Array.isArray(data)) {
       return { objects: data, selectedObjectId: data[0]?.id || null, selectedJointIndex: null };
     }
+    // Place generated object to the right of the existing scene so it doesn't overlap
+    let spawnX = 3;
+    if (state.objects.length > 0) {
+      let maxX = -Infinity;
+      for (const obj of state.objects) {
+        const px = obj.position?.[0] ?? 0;
+        for (const v of (obj.vertices || [])) maxX = Math.max(maxX, px + v[0]);
+      }
+      if (maxX > -Infinity) spawnX = maxX + 2;
+    }
     const newObj = {
       id: Math.random().toString(36).substr(2, 9),
       name: 'Generated Mesh',
@@ -246,7 +256,7 @@ const useStore = create((set, get) => ({
       color: data.color || '#7C3AED',
       materialType: data.materialType || 'physical',
       visible: true,
-      position: [0,0,0],
+      position: [spawnX, 0, 0],
       rotation: [0,0,0],
       scale: [1,1,1]
     };
