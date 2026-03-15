@@ -1,5 +1,5 @@
-import React from 'react';
-import { Layers, Eye, EyeOff, Trash2, Crosshair, Sliders } from 'lucide-react';
+import React, { useState } from 'react';
+import { Layers, Eye, EyeOff, Trash2, Crosshair, Sliders, Camera } from 'lucide-react';
 import useStore from './useStore';
 import TexturePanel from './components/TexturePanel';
 import { performCSG } from './utils/CSGProcessor';
@@ -7,6 +7,7 @@ import { performCSG } from './utils/CSGProcessor';
 const Inspector = () => {
   const { objects, selectedObjectId, setSelectedObjectId, updateObject, deleteObject, selectedJointIndex, setSelectedJointIndex, updateVertex, saveHistory, setGeometry } = useStore();
   const selectedObject = objects.find(o => o.id === selectedObjectId);
+  const [isOrtho, setIsOrtho] = useState(false);
 
   const handleCSG = (op) => {
     const sibling = objects.find(o => o.id !== selectedObjectId);
@@ -22,6 +23,9 @@ const Inspector = () => {
           <Sliders size={14} className="text-[#7C3AED]" />
           <span className="text-[10px] uppercase tracking-widest text-white font-black">Object Settings</span>
         </div>
+        <button onClick={() => setIsOrtho(!isOrtho)} className={`p-1.5 rounded ${isOrtho ? 'text-[#06B6D4]' : 'text-gray-500'}`}>
+          <Camera size={14} />
+        </button>
       </div>
       <div className="flex-1 p-4 overflow-y-auto space-y-6 select-text">
         {selectedObject && (
