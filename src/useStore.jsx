@@ -1,19 +1,27 @@
 import { create } from 'zustand';
 import { generateF1 } from './f1Model';
-import { bevelSelectedVertices, subdivideEdge as meshSubdivideEdge, dissolveVertex as meshDissolveVertex } from './utils/MeshAnalysis';
+import {
+  bevelSelectedVertices,
+  subdivideEdge as meshSubdivideEdge,
+  dissolveVertex as meshDissolveVertex,
+  laplacianSmooth,
+  laplacianSmoothSelected,
+} from './utils/MeshAnalysis';
 
-const initialObjects = generateF1();
+const { objects: initialObjects, groups: initialGroups } = generateF1();
 
 const useStore = create((set, get) => ({
   setState: (state, replace) => set(state, replace),
   getState: () => get(),
   objects: initialObjects,
+  groups: initialGroups,
   history: [JSON.parse(JSON.stringify(initialObjects))],
   historyIndex: 0,
   selectedObjectId: null,
-  selectedObjectIds: [],      // multi-object selection
-  selectedJointIndex: null,   // = selectedVertexIndices[0] ?? null (kept for Inspector compat)
-  selectedVertexIndices: [],  // multi-select array
+  selectedObjectIds: [],
+  selectedGroupId: null,
+  selectedJointIndex: null,
+  selectedVertexIndices: [],
   editMode: 'object',
   orbitEnabled: true,
   isGenerating: false,
@@ -21,7 +29,6 @@ const useStore = create((set, get) => ({
 
   setEditMode: (mode) => set({
     editMode: mode,
-    // clear vertex selection when leaving vertex mode
     ...(mode !== 'vertex' ? { selectedVertexIndices: [], selectedJointIndex: null } : {}),
   }),
   setOrbitEnabled: (enabled) => set({ orbitEnabled: enabled }),
@@ -31,7 +38,129 @@ const useStore = create((set, get) => ({
     selectedJointIndex: indices[0] ?? null,
   }),
 
-  // Batch-update multiple vertices in one store write (used by multi-vertex drag)
+  // ── Group management ────────────────────────────────────────────────────────
+
+  setGroups: (groups) => set({ groups }),
+
+  addGroup: (name) => {
+    const id = Math.random().toString(36).substr(2, 9);
+    set(state => ({ groups: [...state.groups, { id, name }] }));
+    return id;
+  },
+
+  removeGroup: (groupId) => set(state => ({
+    groups: state.groups.filter(g => g.id !== groupId),
+    objects: state.objects.map(o => o.groupId === groupId ? { ...o, groupId: null } : o),
+    selectedGroupId: state.selectedGroupId === groupId ? null : state.selectedGroupId,
+  })),
+
+  setObjectGroup: (objectId, groupId) => set(state => ({
+    objects: state.objects.map(o => o.id === objectId ? { ...o, groupId } : o),
+  })),
+
+  setSelectedGroupId: (groupId) => set(state => {
+    if (!groupId) return { selectedGroupId: null };
+    const groupObjectIds = state.objects.filter(o => o.groupId === groupId).map(o => o.id);
+    return {
+      selectedGroupId: groupId,
+      selectedObjectIds: groupObjectIds,
+      selectedObjectId: groupObjectIds[0] ?? null,
+      selectedVertexIndices: [],
+      selectedJointIndex: null,
+      editMode: 'object',
+    };
+  }),
+
+  // ── Uniform scale toward vertex centroid ────────────────────────────────────
+
+  scaleUniform: (objectId, factor) => set(state => {
+    const obj = state.objects.find(o => o.id === objectId);
+    if (!obj?.vertices?.length) return {};
+    const n = obj.vertices.length;
+    const cx = obj.vertices.reduce((s, v) => s + v[0], 0) / n;
+    const cy = obj.vertices.reduce((s, v) => s + v[1], 0) / n;
+    const cz = obj.vertices.reduce((s, v) => s + v[2], 0) / n;
+    const newVerts = obj.vertices.map(v => [
+      cx + (v[0] - cx) * factor,
+      cy + (v[1] - cy) * factor,
+      cz + (v[2] - cz) * factor,
+    ]);
+    return { objects: state.objects.map(o => o.id === objectId ? { ...o, vertices: newVerts } : o) };
+  }),
+
+  // Scale each object in a group toward its own centroid (each part scales in-place)
+  scaleGroup: (groupId, factor) => set(state => {
+    const newObjects = state.objects.map(obj => {
+      if (obj.groupId !== groupId) return obj;
+      if (!obj.vertices?.length) return obj;
+      const n = obj.vertices.length;
+      const cx = obj.vertices.reduce((s, v) => s + v[0], 0) / n;
+      const cy = obj.vertices.reduce((s, v) => s + v[1], 0) / n;
+      const cz = obj.vertices.reduce((s, v) => s + v[2], 0) / n;
+      const newVerts = obj.vertices.map(v => [
+        cx + (v[0] - cx) * factor,
+        cy + (v[1] - cy) * factor,
+        cz + (v[2] - cz) * factor,
+      ]);
+      return { ...obj, vertices: newVerts };
+    });
+    return { objects: newObjects };
+  }),
+
+  // ── Select similar ──────────────────────────────────────────────────────────
+
+  selectSimilar: (objectId) => set(state => {
+    const obj = state.objects.find(o => o.id === objectId);
+    if (!obj) return {};
+    let similar;
+    let matchedGroupId = null;
+    if (obj.groupId) {
+      similar = state.objects.filter(o => o.groupId === obj.groupId);
+      matchedGroupId = obj.groupId;
+    } else {
+      const prefix = obj.name.split(' ')[0].toLowerCase();
+      const vCount = obj.vertices.length;
+      similar = state.objects.filter(o =>
+        o.name.toLowerCase().startsWith(prefix) &&
+        Math.abs(o.vertices.length - vCount) / Math.max(vCount, 1) < 0.2
+      );
+    }
+    return {
+      selectedObjectIds: similar.map(o => o.id),
+      selectedObjectId: objectId,
+      selectedGroupId: matchedGroupId,
+    };
+  }),
+
+  // ── Smooth ──────────────────────────────────────────────────────────────────
+
+  smoothObject: (objectId, iterations = 1, factor = 0.5) => set(state => {
+    const obj = state.objects.find(o => o.id === objectId);
+    if (!obj?.vertices?.length || !obj?.indices?.length) return {};
+    const verts = laplacianSmooth(obj.vertices, obj.indices, iterations, factor);
+    return { objects: state.objects.map(o => o.id === objectId ? { ...o, vertices: verts } : o) };
+  }),
+
+  smoothSelectedVertices: (objectId, selectedIndices, iterations = 1, factor = 0.5) => set(state => {
+    const obj = state.objects.find(o => o.id === objectId);
+    if (!obj?.vertices?.length || !obj?.indices?.length) return {};
+    const verts = laplacianSmoothSelected(obj.vertices, obj.indices, selectedIndices, iterations, factor);
+    return { objects: state.objects.map(o => o.id === objectId ? { ...o, vertices: verts } : o) };
+  }),
+
+  // ── Batch position update (used by group drag) ──────────────────────────────
+
+  batchUpdatePositions: (updates) => set(state => {
+    // updates: { [objectId]: [x,y,z] }
+    return {
+      objects: state.objects.map(obj =>
+        updates[obj.id] !== undefined ? { ...obj, position: updates[obj.id] } : obj
+      ),
+    };
+  }),
+
+  // ── Vertices ────────────────────────────────────────────────────────────────
+
   updateVertices: (objectId, updates) => set((state) => {
     const updateMap = new Map(updates.map(u => [u.index, u.position]));
     const newObjects = state.objects.map(obj => {
@@ -55,24 +184,25 @@ const useStore = create((set, get) => ({
   undo: () => set((state) => {
     if (state.historyIndex <= 0) return {};
     const newIndex = state.historyIndex - 1;
-    return { 
-      objects: JSON.parse(JSON.stringify(state.history[newIndex])), 
-      historyIndex: newIndex 
+    return {
+      objects: JSON.parse(JSON.stringify(state.history[newIndex])),
+      historyIndex: newIndex
     };
   }),
 
   redo: () => set((state) => {
     if (state.historyIndex >= state.history.length - 1) return {};
     const newIndex = state.historyIndex + 1;
-    return { 
-      objects: JSON.parse(JSON.stringify(state.history[newIndex])), 
-      historyIndex: newIndex 
+    return {
+      objects: JSON.parse(JSON.stringify(state.history[newIndex])),
+      historyIndex: newIndex
     };
   }),
 
   setSelectedObjectId: (id) => set({
     selectedObjectId: id,
     selectedObjectIds: id ? [id] : [],
+    selectedGroupId: null,
     selectedJointIndex: null,
     selectedVertexIndices: [],
     editMode: id ? get().editMode : 'object',
@@ -86,12 +216,12 @@ const useStore = create((set, get) => ({
     set({
       selectedObjectIds: next,
       selectedObjectId: next[next.length - 1] ?? null,
+      selectedGroupId: null,
       selectedJointIndex: null,
       selectedVertexIndices: [],
     });
   },
 
-  // Batch-update a property across all selected objects
   updateSelectedObjects: (updates) => {
     const { selectedObjectIds } = get();
     set(state => ({
@@ -100,18 +230,15 @@ const useStore = create((set, get) => ({
       ),
     }));
   },
-  
+
   setSelectedJointIndex: (index) => set({ selectedJointIndex: index }),
   setGenerating: (isGenerating) => set({ isGenerating }),
   setExportRequested: (exportRequested) => set({ exportRequested }),
 
-  // This replaces the entire scene or merges into it
   setGeometry: (data) => set((state) => {
-    // If it's an array (like from f1Model), replace objects
     if (Array.isArray(data)) {
       return { objects: data, selectedObjectId: data[0]?.id || null, selectedJointIndex: null };
     }
-    // If it's a single object (like from older AI service), wrap it
     const newObj = {
       id: Math.random().toString(36).substr(2, 9),
       name: 'Generated Mesh',
@@ -147,8 +274,6 @@ const useStore = create((set, get) => ({
       }
       return obj;
     });
-    // Vertex updates can be frequent, maybe only save on 'mouseUp' 
-    // but for now let's just do it to be safe.
     return { objects: newObjects };
   }),
 
@@ -200,7 +325,7 @@ const useStore = create((set, get) => ({
       }
     } else if (type === 'cone') {
       const segments = 16;
-      vertices.push([0, 0.5, 0]); // Tip
+      vertices.push([0, 0.5, 0]);
       for (let i = 0; i <= segments; i++) {
         const theta = (i / segments) * Math.PI * 2;
         vertices.push([Math.cos(theta) * 0.5, -0.5, Math.sin(theta) * 0.5]);
@@ -220,7 +345,7 @@ const useStore = create((set, get) => ({
       metalness: 0.5,
       roughness: 0.5,
       visible: true,
-      position: [3, 0.5, 0],  // spawn beside model, not inside it
+      position: [3, 0.5, 0],
       rotation: [0,0,0],
       scale: [1,1,1]
     };
@@ -228,17 +353,19 @@ const useStore = create((set, get) => ({
     set({
       objects: [...objects, newObj],
       selectedObjectId: id,
+      selectedGroupId: null,
       selectedJointIndex: null
     });
     get().saveHistory();
   },
 
-  setGroup: (groupId) => set((state) => ({ 
-    objects: state.objects.map(o => o.id === state.selectedObjectId ? {...o, groupId} : o) 
-  })), 
-  unsetGroup: () => set((state) => ({ 
-    objects: state.objects.map(o => o.id === state.selectedObjectId ? {...o, groupId: null} : o) 
-  })), 
+  setGroup: (groupId) => set((state) => ({
+    objects: state.objects.map(o => o.id === state.selectedObjectId ? {...o, groupId} : o)
+  })),
+  unsetGroup: () => set((state) => ({
+    objects: state.objects.map(o => o.id === state.selectedObjectId ? {...o, groupId: null} : o)
+  })),
+
   applyBevel: (objectId, selectedIndices, amount) => set(state => {
     const obj = state.objects.find(o => o.id === objectId);
     if (!obj) return {};
@@ -265,7 +392,6 @@ const useStore = create((set, get) => ({
     const obj = state.objects.find(o => o.id === objectId);
     if (!obj) return {};
     const result = meshDissolveVertex(obj.vertices, obj.indices, vi);
-    // Shift selected indices that are above the removed vertex
     const shiftIdx = i => i === vi ? null : i > vi ? i - 1 : i;
     const newSelected = state.selectedVertexIndices
       .map(shiftIdx).filter(i => i !== null);

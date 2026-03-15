@@ -9,20 +9,21 @@ const EditableMesh = ({ object }) => {
   const geomRef = useRef();
   const { camera, gl } = useThree();
 
-  // Granular selectors — each only triggers re-render for THIS object's state change
   const isSelected      = useStore(s => s.selectedObjectIds.includes(object.id));
   const isPrimary       = useStore(s => s.selectedObjectId === object.id);
   const editMode        = useStore(s => s.editMode);
+  const selectedGroupId = useStore(s => s.selectedGroupId);
   const setEditMode     = useStore(s => s.setEditMode);
   const updateObject    = useStore(s => s.updateObject);
   const setSelectedObjectId    = useStore(s => s.setSelectedObjectId);
   const toggleSelectedObjectId = useStore(s => s.toggleSelectedObjectId);
   const setSelectedJointIndex  = useStore(s => s.setSelectedJointIndex);
   const setOrbitEnabled        = useStore(s => s.setOrbitEnabled);
+  const setSelectedGroupId     = useStore(s => s.setSelectedGroupId);
+  const batchUpdatePositions   = useStore(s => s.batchUpdatePositions);
 
   const isVertexMode = isPrimary && editMode === 'vertex';
 
-  // Flat buffers for BufferGeometry
   const flatVertices = useMemo(() => {
     if (!object?.vertices?.length) return new Float32Array([]);
     return new Float32Array(object.vertices.flat());
@@ -33,7 +34,6 @@ const EditableMesh = ({ object }) => {
     return new Uint32Array(object.indices);
   }, [object.indices]);
 
-  // Recompute normals when geometry changes
   useEffect(() => {
     if (geomRef.current) geomRef.current.computeVertexNormals();
   }, [object.vertices, object.indices]);
@@ -54,7 +54,6 @@ const EditableMesh = ({ object }) => {
     return <meshStandardMaterial {...props} />;
   }, [object.color, object.materialType, object.metalness, object.roughness, isVertexMode, isSelected, isPrimary]);
 
-  // ── Direct drag: camera-facing plane, same technique as vertex handles ──
   const handlePointerDown = useCallback((e) => {
     if (isVertexMode) return;
     e.stopPropagation();
@@ -63,6 +62,13 @@ const EditableMesh = ({ object }) => {
       toggleSelectedObjectId(object.id);
       return;
     }
+
+    // Group-first click: first click on a grouped object selects the whole group
+    if (object.groupId && selectedGroupId !== object.groupId) {
+      setSelectedGroupId(object.groupId);
+      return; // don't start drag on first group click
+    }
+
     setSelectedObjectId(object.id);
 
     const cameraDir = new THREE.Vector3();
@@ -84,6 +90,18 @@ const EditableMesh = ({ object }) => {
     const posStart = [...(object.position || [0, 0, 0])];
     let hasMoved = false;
 
+    // For group drag: use the pre-call selectedGroupId (React selector value from current
+    // render closure) — NOT useStore.getState().selectedGroupId, which has already been
+    // cleared by the synchronous setSelectedObjectId() call above.
+    const isGroupDrag = object.groupId && selectedGroupId === object.groupId;
+    const groupStartPositions = isGroupDrag
+      ? Object.fromEntries(
+          useStore.getState().objects
+            .filter(o => o.groupId === object.groupId)
+            .map(o => [o.id, [...(o.position || [0, 0, 0])]])
+        )
+      : null;
+
     setOrbitEnabled(false);
 
     const onMove = (me) => {
@@ -95,7 +113,16 @@ const EditableMesh = ({ object }) => {
       const hit = new THREE.Vector3();
       if (!raycaster.ray.intersectPlane(plane, hit)) return;
       const d = hit.clone().sub(hitStart);
-      updateObject(object.id, { position: [posStart[0]+d.x, posStart[1]+d.y, posStart[2]+d.z] });
+
+      if (groupStartPositions) {
+        const updates = {};
+        for (const [id, start] of Object.entries(groupStartPositions)) {
+          updates[id] = [start[0] + d.x, start[1] + d.y, start[2] + d.z];
+        }
+        batchUpdatePositions(updates);
+      } else {
+        updateObject(object.id, { position: [posStart[0]+d.x, posStart[1]+d.y, posStart[2]+d.z] });
+      }
     };
 
     const onUp = () => {
@@ -106,7 +133,7 @@ const EditableMesh = ({ object }) => {
 
     document.addEventListener('pointermove', onMove);
     document.addEventListener('pointerup',   onUp);
-  }, [isVertexMode, object, camera, gl, toggleSelectedObjectId, setSelectedObjectId, setOrbitEnabled, updateObject]);
+  }, [isVertexMode, object, camera, gl, selectedGroupId, toggleSelectedObjectId, setSelectedObjectId, setSelectedGroupId, setOrbitEnabled, updateObject, batchUpdatePositions]);
 
   const handleDoubleClick = useCallback((e) => {
     e.stopPropagation();
