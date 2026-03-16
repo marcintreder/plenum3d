@@ -12,9 +12,25 @@ function buildAdjacency(vertices, indices) {
   return adj;
 }
 
+// Compute centroid and RMS extent of a vertex array
+function meshStats(verts) {
+  const c = [0, 0, 0];
+  for (const v of verts) { c[0] += v[0]; c[1] += v[1]; c[2] += v[2]; }
+  c[0] /= verts.length; c[1] /= verts.length; c[2] /= verts.length;
+  let rms = 0;
+  for (const v of verts) {
+    const dx = v[0]-c[0], dy = v[1]-c[1], dz = v[2]-c[2];
+    rms += dx*dx + dy*dy + dz*dz;
+  }
+  return { centroid: c, rms: Math.sqrt(rms / verts.length) };
+}
+
 export function laplacianSmooth(vertices, indices, iterations = 1, factor = 0.5) {
   const adj = buildAdjacency(vertices, indices);
   let verts = vertices.map(v => [...v]);
+
+  // Capture original scale so we can restore it after smoothing (prevents shrinkage)
+  const { centroid: origC, rms: origRMS } = meshStats(verts);
 
   for (let iter = 0; iter < iterations; iter++) {
     const next = verts.map((v, i) => {
@@ -37,7 +53,15 @@ export function laplacianSmooth(vertices, indices, iterations = 1, factor = 0.5)
     });
     verts = next;
   }
-  return verts;
+
+  // Restore original size: re-center on original centroid and scale back to original RMS
+  const { centroid: newC, rms: newRMS } = meshStats(verts);
+  const s = newRMS > 0.0001 ? origRMS / newRMS : 1;
+  return verts.map(v => [
+    origC[0] + (v[0] - newC[0]) * s,
+    origC[1] + (v[1] - newC[1]) * s,
+    origC[2] + (v[2] - newC[2]) * s,
+  ]);
 }
 
 // ── Face detection via flood-fill on adjacent coplanar triangles ─────────────
@@ -268,6 +292,17 @@ export function laplacianSmoothSelected(vertices, indices, selectedIndices, iter
   const sel = new Set(selectedIndices);
   let verts = vertices.map(v => [...v]);
 
+  // Capture original positions of selected verts for scale restoration
+  const origSelected = selectedIndices.map(i => [...vertices[i]]);
+  const selStats = () => {
+    const pts = selectedIndices.map(i => verts[i]);
+    return meshStats(pts.length ? pts : [[0,0,0]]);
+  };
+  const { centroid: origC, rms: origRMS } = (() => {
+    const pts = origSelected;
+    return meshStats(pts.length ? pts : [[0,0,0]]);
+  })();
+
   for (let iter = 0; iter < iterations; iter++) {
     const next = verts.map((v, i) => {
       if (!sel.has(i)) return v;
@@ -289,6 +324,20 @@ export function laplacianSmoothSelected(vertices, indices, selectedIndices, iter
       ];
     });
     verts = next;
+  }
+
+  // Restore scale of selected region
+  if (selectedIndices.length > 1 && origRMS > 0.0001) {
+    const { centroid: newC, rms: newRMS } = selStats();
+    const s = newRMS > 0.0001 ? origRMS / newRMS : 1;
+    return verts.map((v, i) => {
+      if (!sel.has(i)) return v;
+      return [
+        origC[0] + (v[0] - newC[0]) * s,
+        origC[1] + (v[1] - newC[1]) * s,
+        origC[2] + (v[2] - newC[2]) * s,
+      ];
+    });
   }
   return verts;
 }

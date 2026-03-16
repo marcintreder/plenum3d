@@ -350,8 +350,8 @@ const Inspector = () => {
       {/* Properties */}
       <div className="flex-1 p-4 overflow-y-auto space-y-5 select-text">
 
-        {/* ── Group panel ──────────────────────────────────────────────────── */}
-        {currentGroup && (
+        {/* ── Group panel — only when the group itself is selected, not an individual object inside it ── */}
+        {selectedGroupId && currentGroup && (
           <section className="space-y-3 pb-4 border-b border-[#333]">
             <div className="flex items-center justify-between">
               <div className="text-[9px] text-[#7C3AED] uppercase font-black tracking-widest flex items-center gap-1">
