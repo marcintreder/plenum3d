@@ -133,6 +133,41 @@ Currently if the generated code throws a runtime error (e.g., syntax error, unde
 
 ---
 
+### Task P5 — Playwright E2E smoke tests
+**Files: `playwright.config.js` (new), `src/test/fix_verification.test.js`, `package.json`**
+
+Set up Playwright to smoke-test the UI shell. The 3D canvas is not testable via DOM — only test what is.
+
+**Setup:**
+- Add `playwright.config.js` at project root:
+  ```js
+  import { defineConfig } from '@playwright/test';
+  export default defineConfig({
+    testDir: './src/test/e2e',
+    use: { baseURL: 'http://localhost:5173', headless: true },
+    webServer: { command: 'npm run dev', url: 'http://localhost:5173', reuseExistingServer: true },
+  });
+  ```
+- Create `src/test/e2e/` directory, move any Playwright tests there
+- Add `"test:e2e": "playwright test"` to `package.json` scripts
+- Delete or empty `src/test/fix_verification.test.js` (it uses `test.describe` Playwright syntax but lives in the Vitest folder — it causes confusion)
+
+**Tests to write in `src/test/e2e/smoke.spec.js`:**
+1. Login page renders — `h1` contains "Plenum3D", sign-in button visible
+2. Settings modal — click Settings button, modal appears, close button works
+3. Scene tabs — "+ " button adds a new tab, tab is visible
+4. Prompt bar — input is visible, placeholder text present
+5. Export button — GLB export button is in the DOM
+
+**Do NOT test:**
+- Anything inside the `<canvas>` element (WebGL/R3F is not DOM-accessible)
+- AI generation results
+- Actual Google login (requires real OAuth — mock or skip)
+
+**Definition of done:** `npm run test:e2e` runs with a local dev server, all 5 smoke tests pass, `npm run test` (Vitest) still passes. Commit both.
+
+---
+
 ## Technical Architecture Notes (for Openclaw)
 
 ### Auth flow
