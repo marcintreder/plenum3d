@@ -175,7 +175,7 @@ function buildSceneDescription(objects, groups) {
 // ── Shared system prompt ──────────────────────────────────────────────────────
 
 function buildSystemPrompt(sceneDesc) {
-  return `You are an AI assistant controlling a 3D sculpting tool called Sculpt3D. Translate the user's natural language command into one or more tool calls.
+  return `You are an AI assistant controlling a 3D sculpting tool called Plenum3D. Translate the user's natural language command into one or more tool calls.
 
 ${sceneDesc}
 

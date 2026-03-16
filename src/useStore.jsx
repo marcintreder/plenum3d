@@ -602,6 +602,21 @@ const useStore = create((set, get) => ({
   renameScene: (id, name) => set(state => ({
     scenes: state.scenes.map(s => s.id === id ? { ...s, name } : s),
   })),
+
+  // Replace all scenes (used when loading a saved project from the DB)
+  loadProject: (scenes, activeSceneId) => {
+    const active = scenes.find(s => s.id === activeSceneId) || scenes[0];
+    if (!active) return;
+    set({
+      scenes,
+      activeSceneId: active.id,
+      objects: active.objects || [],
+      groups: active.groups || [],
+      history: active.history || [[]],
+      historyIndex: active.historyIndex ?? 0,
+      ...CLEAR_SELECTION,
+    });
+  },
 }));
 
 export default useStore;

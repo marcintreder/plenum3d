@@ -1,21 +1,126 @@
 import React, { useState, useCallback, useEffect, useMemo } from "react";
-import { Canvas } from "@react-three/fiber";
-import { OrbitControls, Grid } from "@react-three/drei";
+import { Canvas, useThree, useFrame } from "@react-three/fiber";
+import { OrbitControls, Grid, TransformControls } from "@react-three/drei";
 import {
   Settings, Download, Circle, Square,
   Triangle, Cylinder as CylinderIcon, Code,
   Undo2, Redo2, Bot, Sparkles, Paperclip, Terminal, Sun,
-  Disc, Minus, Mountain, Pill
+  Disc, Minus, Mountain, Pill, MessageSquare, Cloud, CloudOff, Loader
 } from "lucide-react";
 import ConsolePanel from "./components/ConsolePanel";
+
 import EditableMesh from "./EditableMesh";
 import Inspector from "./Inspector";
 import Exporter from "./Exporter";
 import CodeView from "./CodeView";
+
 import useStore from "./useStore";
 import useKeyboardShortcuts from "./useKeyboardShortcuts";
 import { generate3DModel } from "./aiService";
 import { executeAgentCommand, resolveTargets } from "./agentService";
+import { saveSettings, saveProjects } from "./apiClient";
+
+// Lives inside <Canvas> — exposes a screenshot function via callback ref
+const ScreenshotHelper = ({ callbackRef }) => {
+  const { gl, scene, camera } = useThree();
+  useEffect(() => {
+    callbackRef.current = () => {
+      const prevBg = scene.background;
+      scene.background = null;
+      gl.setClearColor(0x000000, 0);
+      gl.render(scene, camera);
+      const url = gl.domElement.toDataURL('image/png');
+      scene.background = prevBg;
+      gl.setClearColor(0x0F0F0F, 1);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'sculpt3d-scene.png';
+      a.click();
+    };
+  }, [gl, scene, camera, callbackRef]);
+  return null;
+};
+
+// Lives inside <Canvas> — shows a 3-axis translate gizmo for the selected group
+const GroupGizmo = () => {
+  const selectedGroupId    = useStore(s => s.selectedGroupId);
+  const objects            = useStore(s => s.objects);
+  const batchUpdatePositions = useStore(s => s.batchUpdatePositions);
+  const setOrbitEnabled    = useStore(s => s.setOrbitEnabled);
+  const saveHistory        = useStore(s => s.saveHistory);
+
+  const [pivot, setPivot] = React.useState(null);
+  const dragRef = React.useRef(null);
+  // Buffer pending position updates to flush outside the Three.js event dispatch
+  const pendingUpdates = React.useRef(null);
+
+  const members = React.useMemo(
+    () => objects.filter(o => o.groupId === selectedGroupId),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedGroupId, objects]
+  );
+
+  const centroid = React.useMemo(() => {
+    if (!members.length) return [0, 0, 0];
+    return [
+      members.reduce((s, o) => s + (o.position?.[0] ?? 0), 0) / members.length,
+      members.reduce((s, o) => s + (o.position?.[1] ?? 0), 0) / members.length,
+      members.reduce((s, o) => s + (o.position?.[2] ?? 0), 0) / members.length,
+    ];
+  }, [members]);
+
+  // Sync pivot to centroid whenever not dragging
+  React.useEffect(() => {
+    if (pivot && !dragRef.current) pivot.position.set(...centroid);
+  }, [centroid, pivot]);
+
+  // Flush buffered position updates at the start of each frame, outside event dispatch
+  useFrame(() => {
+    if (pendingUpdates.current) {
+      batchUpdatePositions(pendingUpdates.current);
+      pendingUpdates.current = null;
+    }
+  });
+
+  if (!selectedGroupId || !members.length) return null;
+
+  return (
+    <>
+      <mesh ref={setPivot} position={centroid} visible={false}>
+        <sphereGeometry args={[0.001]} />
+        <meshBasicMaterial />
+      </mesh>
+      {pivot && (
+        <TransformControls
+          object={pivot}
+          mode="translate"
+          onMouseDown={() => {
+            setOrbitEnabled(false);
+            saveHistory();
+            dragRef.current = {
+              startPivot: pivot.position.clone(),
+              memberStarts: Object.fromEntries(members.map(o => [o.id, [...(o.position || [0, 0, 0])]])),
+            };
+          }}
+          onChange={() => {
+            if (!dragRef.current) return;
+            const { startPivot, memberStarts } = dragRef.current;
+            const dx = pivot.position.x - startPivot.x;
+            const dy = pivot.position.y - startPivot.y;
+            const dz = pivot.position.z - startPivot.z;
+            const updates = {};
+            Object.entries(memberStarts).forEach(([id, start]) => {
+              updates[id] = [start[0] + dx, start[1] + dy, start[2] + dz];
+            });
+            // Buffer instead of calling setState directly inside Three.js event dispatch
+            pendingUpdates.current = updates;
+          }}
+          onMouseUp={() => { dragRef.current = null; setOrbitEnabled(true); }}
+        />
+      )}
+    </>
+  );
+};
 
 const COMMERCIAL_MODELS = {
   Anthropic: ['claude-sonnet-4-6', 'claude-opus-4-6', 'claude-haiku-4-5-20251001'],
@@ -37,11 +142,16 @@ const MODEL_LABELS = {
   'gemini-2.5-pro':          'Pro 2.5',
 };
 
-const App = () => {
+const App = ({ user, onLogout, initialData }) => {
   const [isModalOpen, setModalOpen] = useState(false);
   const [isCodeViewOpen, setCodeViewOpen] = useState(false);
   const [prompt, setPrompt] = useState("");
-  const [keys, setKeys] = useState(() => JSON.parse(localStorage.getItem("3d_sculpt_keys") || "{}"));
+  const [keys, setKeys] = useState(() => {
+    // DB data takes priority over localStorage
+    if (initialData?.settings && Object.keys(initialData.settings).length > 0) return initialData.settings;
+    try { return JSON.parse(localStorage.getItem("3d_sculpt_keys") || "{}"); }
+    catch { return {}; }
+  });
   const [refImage, setRefImage] = useState(null);
   const [isCommandMode, setIsCommandMode] = useState(false);
   const [agentFeedback, setAgentFeedback] = useState(null);
@@ -55,6 +165,29 @@ const App = () => {
   const [light, setLight] = useState({ ambientInt: 1.5, dirInt: 1.5, azimuth: 45, elevation: 45 });
   const [renamingSceneId, setRenamingSceneId] = useState(null);
   const [renameValue, setRenameValue] = useState('');
+  const [renamingProjectId, setRenamingProjectId] = useState(null);
+  const [renameProjectValue, setRenameProjectValue] = useState('');
+
+  const screenshotRef = React.useRef(null);
+
+  // ── Save status ─────────────────────────────────────────────────────────────
+  // 'idle' | 'pending' | 'saving' | 'saved' | 'error'
+  const [saveStatus, setSaveStatus] = useState('idle');
+  const [lastSavedAt, setLastSavedAt] = useState(null);
+
+  // ── Project management ──────────────────────────────────────────────────────
+  const [projects, setProjects] = useState(() => {
+    // DB data takes priority
+    if (Array.isArray(initialData?.projects) && initialData.projects.length > 0) return initialData.projects;
+    try {
+      const saved = JSON.parse(localStorage.getItem('sculpt3d_projects') || 'null');
+      return Array.isArray(saved) && saved.length > 0 ? saved : [{ id: 'proj-default', name: 'My Project' }];
+    } catch { return [{ id: 'proj-default', name: 'My Project' }]; }
+  });
+  const [activeProjectId, setActiveProjectId] = useState(() =>
+    JSON.parse(localStorage.getItem('sculpt3d_active_project') || '"proj-default"')
+  );
+
 
   const addLog = useCallback((type, msg) => {
     const ts = new Date().toLocaleTimeString('en-US', { hour12: false });
@@ -99,6 +232,7 @@ const App = () => {
     batchUpdatePositions,
     addGroup,
     setObjectGroup,
+    loadProject,
   } = useStore();
 
   // True when at least one AI backend is explicitly configured
@@ -123,13 +257,117 @@ const App = () => {
   // Reset model override when provider changes
   useEffect(() => { setModelOverride(null); }, [providerOverride]);
 
+  // On mount: if the user has saved projects in DB, load the active one.
+  // This overrides the default F1-car store state for returning users.
+  useEffect(() => {
+    if (!initialData?.projects?.length) return;
+    const active = initialData.projects.find(p => p.id === activeProjectId) || initialData.projects[0];
+    if (active?.scenes?.length) {
+      loadProject(active.scenes, active.activeSceneId || active.scenes[0]?.id);
+      setActiveProjectId(active.id);
+      localStorage.setItem('sculpt3d_active_project', JSON.stringify(active.id));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // run once on mount only
+
+  // Snapshot the store's current scenes array with the active scene saved
+  const getSceneSnapshot = useCallback(() => {
+    const { scenes: s, activeSceneId: aid, objects: o, groups: g } = useStore.getState();
+    // Strip history — too large for localStorage/DB; undo history is session-only
+    return s.map(sc => sc.id === aid
+      ? { ...sc, objects: o, groups: g, history: [[]], historyIndex: 0 }
+      : { ...sc, history: [[]], historyIndex: 0 }
+    );
+  }, []);
+
+  const persistProjects = useCallback((updated, newActiveId) => {
+    setProjects(updated);
+    localStorage.setItem('sculpt3d_projects', JSON.stringify(updated));
+    if (newActiveId !== undefined) {
+      setActiveProjectId(newActiveId);
+      localStorage.setItem('sculpt3d_active_project', JSON.stringify(newActiveId));
+    }
+  }, []);
+
+  const saveCurrentProject = useCallback(() => {
+    const snapshot = getSceneSnapshot();
+    const updated = projects.map(p => p.id === activeProjectId ? { ...p, scenes: snapshot, activeSceneId: useStore.getState().activeSceneId } : p);
+    persistProjects(updated);
+  }, [projects, activeProjectId, getSceneSnapshot, persistProjects]);
+
+  const switchToProject = useCallback((pid) => {
+    if (pid === activeProjectId) return;
+    // Save current project first
+    const snapshot = getSceneSnapshot();
+    const updated = projects.map(p =>
+      p.id === activeProjectId
+        ? { ...p, scenes: snapshot, activeSceneId: useStore.getState().activeSceneId }
+        : p
+    );
+    const target = updated.find(p => p.id === pid);
+    if (!target) return;
+    persistProjects(updated, pid);
+    if (target.scenes?.length) {
+      loadProject(target.scenes, target.activeSceneId || target.scenes[0]?.id);
+    }
+  }, [activeProjectId, projects, getSceneSnapshot, persistProjects, loadProject]);
+
   // Activate global shortcuts
   useKeyboardShortcuts();
+
+  // Keep a ref so the save function always has fresh projects without stale closure
+  const projectsRef = React.useRef(projects);
+  useEffect(() => { projectsRef.current = projects; }, [projects]);
+
+  const dbSyncTimer = React.useRef(null);
+
+  const doSaveToDb = useCallback(async (updated) => {
+    if (!user?.credential) return;
+    setSaveStatus('saving');
+    try {
+      await saveProjects(user.credential, updated);
+      setLastSavedAt(Date.now());
+      setSaveStatus('saved');
+    } catch (err) {
+      console.error('DB save failed:', err);
+      addLog('error', 'Cloud save failed: ' + err.message);
+      setSaveStatus('error');
+    }
+  }, [user?.credential]);
+
+  const manualSave = useCallback(() => {
+    clearTimeout(dbSyncTimer.current);
+    const snapshot = getSceneSnapshot();
+    const updated = projectsRef.current.map(p =>
+      p.id === activeProjectId ? { ...p, scenes: snapshot, activeSceneId: useStore.getState().activeSceneId } : p
+    );
+    setProjects(updated);
+    localStorage.setItem('sculpt3d_projects', JSON.stringify(updated));
+    doSaveToDb(updated);
+  }, [activeProjectId, getSceneSnapshot, doSaveToDb]);
+
+  // Auto-save whenever objects, groups, scenes, or active project change
+  useEffect(() => {
+    const snapshot = getSceneSnapshot();
+    const updated = projectsRef.current.map(p =>
+      p.id === activeProjectId ? { ...p, scenes: snapshot, activeSceneId: useStore.getState().activeSceneId } : p
+    );
+    setProjects(updated);
+    localStorage.setItem('sculpt3d_projects', JSON.stringify(updated));
+    if (user?.credential) {
+      setSaveStatus('pending');
+      clearTimeout(dbSyncTimer.current);
+      dbSyncTimer.current = setTimeout(() => doSaveToDb(updated), 1500);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [objects, groups, scenes, activeProjectId]);
 
   const saveKey = (provider, value) => {
     const newKeys = { ...keys, [provider]: value };
     setKeys(newKeys);
     localStorage.setItem("3d_sculpt_keys", JSON.stringify(newKeys));
+    // Sync to DB immediately on settings change
+    if (user?.credential) saveSettings(user.credential, newKeys).catch(console.error);
   };
 
   const fetchOllamaModels = async () => {
@@ -303,23 +541,22 @@ const App = () => {
       {/* Sidebar: Simplified Editor Mode Switchers */}
       <div className="w-64 bg-[#1A1A1A] border-r border-[#333] p-4 flex flex-col gap-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-black tracking-tighter text-white italic">Sculpt<span className="text-[#7C3AED]">3D</span></h1>
-          <div className="flex gap-2">
-            <button 
-              onClick={undo}
-              disabled={historyIndex <= 0}
-              className="p-2 hover:bg-[#333] rounded-lg text-gray-500 hover:text-white disabled:opacity-20"
-            >
-              <Undo2 size={16} />
-            </button>
-            <button 
-              onClick={redo}
-              disabled={historyIndex >= history.length - 1}
-              className="p-2 hover:bg-[#333] rounded-lg text-gray-500 hover:text-white disabled:opacity-20"
-            >
-              <Redo2 size={16} />
-            </button>
-          </div>
+          <h1 className="text-xl font-black tracking-tighter text-white italic shrink-0">Plenum<span className="text-[#7C3AED]">3D</span></h1>
+          {user && (
+            <div className="flex items-center gap-2 shrink-0">
+              {user.picture
+                ? <img src={user.picture} alt={user.name} className="w-5 h-5 rounded-full" referrerPolicy="no-referrer" />
+                : <div className="w-5 h-5 rounded-full bg-[#7C3AED]/40 flex items-center justify-center text-[9px] font-bold">{user.name?.[0]}</div>
+              }
+              <button
+                onClick={onLogout}
+                className="text-[9px] text-gray-600 hover:text-red-400 transition-colors whitespace-nowrap"
+                title="Sign out"
+              >
+                Sign out
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col gap-1">
@@ -327,6 +564,81 @@ const App = () => {
           <button onClick={() => setModalOpen(true)} className="flex items-center gap-3 p-2 hover:bg-[#333] rounded-lg text-sm text-gray-400 hover:text-white transition-all">
              <Settings size={16} /> Settings
           </button>
+        </div>
+
+        {/* Projects */}
+        <div className="flex flex-col gap-1 mt-2">
+          <div className="flex items-center justify-between mb-1">
+            <div className="text-[10px] uppercase tracking-widest text-gray-500 font-bold">Projects</div>
+            <div className="flex gap-1">
+              <button
+                onClick={() => {
+                  saveCurrentProject();
+                  const pid = Math.random().toString(36).substr(2, 9);
+                  const newProject = { id: pid, name: `Project ${projects.length + 1}` };
+                  const updated = [...projects, newProject];
+                  persistProjects(updated, pid);
+                  loadProject([{ id: 'scene-init', name: 'Scene 1', objects: [], groups: [], history: [[]], historyIndex: 0 }], 'scene-init');
+                }}
+                className="text-[9px] px-1.5 py-0.5 bg-[#333] hover:bg-[#444] rounded text-gray-400 hover:text-white transition-all"
+                title="New project"
+              >+</button>
+            </div>
+          </div>
+          <div className="space-y-0.5 max-h-40 overflow-y-auto">
+            {projects.map(proj => (
+              <div
+                key={proj.id}
+                onClick={() => switchToProject(proj.id)}
+                onDoubleClick={() => { setRenamingProjectId(proj.id); setRenameProjectValue(proj.name); }}
+                className={`group/proj flex items-center justify-between px-2 py-1.5 rounded cursor-pointer transition-all text-[10px] ${
+                  proj.id === activeProjectId ? 'bg-[#7C3AED]/20 text-white' : 'text-gray-500 hover:bg-[#333] hover:text-gray-300'
+                }`}
+              >
+                {renamingProjectId === proj.id ? (
+                  <input
+                    autoFocus
+                    value={renameProjectValue}
+                    onChange={e => setRenameProjectValue(e.target.value)}
+                    onBlur={() => {
+                      const updated = projects.map(p => p.id === proj.id ? { ...p, name: renameProjectValue || proj.name } : p);
+                      persistProjects(updated);
+                      setRenamingProjectId(null);
+                    }}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' || e.key === 'Escape') {
+                        const updated = projects.map(p => p.id === proj.id ? { ...p, name: renameProjectValue || proj.name } : p);
+                        persistProjects(updated);
+                        setRenamingProjectId(null);
+                      }
+                    }}
+                    onClick={e => e.stopPropagation()}
+                    className="bg-[#333] border border-[#7C3AED]/60 rounded px-1 py-0.5 text-[10px] outline-none text-white w-full"
+                  />
+                ) : (
+                  <span className="truncate flex-1">{proj.name}</span>
+                )}
+                {projects.length > 1 && !renamingProjectId && (
+                  <button
+                    onClick={e => {
+                      e.stopPropagation();
+                      if (proj.id === activeProjectId) {
+                        const idx = projects.findIndex(p => p.id === proj.id);
+                        const remaining = projects.filter(p => p.id !== proj.id);
+                        persistProjects(remaining, remaining[Math.max(0, idx-1)]?.id);
+                        const next = remaining[Math.max(0, idx-1)];
+                        if (next?.scenes?.length) loadProject(next.scenes, next.activeSceneId || next.scenes[0]?.id);
+                      } else {
+                        const remaining = projects.filter(p => p.id !== proj.id);
+                        persistProjects(remaining);
+                      }
+                    }}
+                    className="opacity-0 group-hover/proj:opacity-100 text-gray-600 hover:text-red-400 ml-1 transition-opacity"
+                  >×</button>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="flex flex-col gap-1 mt-4">
@@ -364,8 +676,16 @@ const App = () => {
           </button>
         </div>
 
-        <div className="flex flex-col gap-1 mt-auto">
-          <button 
+        <div className="flex flex-col gap-1 mt-auto gap-2">
+          <a
+            href="https://github.com/marcintreder/plenum3d/issues"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 p-2.5 bg-[#1A1A1A] border border-[#333] hover:border-[#7C3AED]/50 text-gray-500 hover:text-white rounded-xl text-sm transition-all"
+          >
+            <MessageSquare size={14} /> Send Feedback
+          </a>
+          <button
             onClick={() => setExportRequested(true)}
             className="flex items-center justify-center gap-2 p-3 bg-white text-black rounded-xl text-sm font-bold hover:bg-gray-200 transition-all shadow-lg active:scale-95"
           >
@@ -377,7 +697,7 @@ const App = () => {
       {/* Main Viewport */}
       <div className="flex-1 relative bg-black flex flex-col">
         {/* Scene Tabs */}
-        <div className="flex items-center bg-[#111] border-b border-[#222] px-2 gap-0.5 overflow-x-auto flex-shrink-0 h-9 select-none" style={{ scrollbarWidth: 'none' }}>
+        <div className="flex items-center bg-[#111] border-b border-[#222] px-2 gap-0.5 flex-shrink-0 h-9 select-none">
           {scenes.map(scene => (
             <div
               key={scene.id}
@@ -430,10 +750,64 @@ const App = () => {
           >
             ⎘
           </button>
+
+          {/* Undo / Redo — right side */}
+          <div className="flex items-center gap-0.5 ml-auto flex-shrink-0 pl-2 border-l border-[#222]">
+            <button
+              onClick={undo}
+              disabled={historyIndex <= 0}
+              className="flex items-center gap-1 px-2 h-7 my-auto rounded text-gray-500 hover:text-white hover:bg-[#333] disabled:opacity-20 transition-all"
+              title="Undo (⌘Z)"
+            >
+              <Undo2 size={12} />
+              <span className="text-[9px] font-mono text-gray-600">⌘Z</span>
+            </button>
+            <button
+              onClick={redo}
+              disabled={historyIndex >= history.length - 1}
+              className="flex items-center gap-1 px-2 h-7 my-auto rounded text-gray-500 hover:text-white hover:bg-[#333] disabled:opacity-20 transition-all"
+              title="Redo (⌘⇧Z)"
+            >
+              <Redo2 size={12} />
+              <span className="text-[9px] font-mono text-gray-600">⌘⇧Z</span>
+            </button>
+          </div>
+
+          {/* Save status */}
+          {user?.credential && (
+            <div className="flex items-center gap-1.5 ml-2 pl-2 border-l border-[#222] flex-shrink-0">
+              {saveStatus === 'saving' && (
+                <span className="flex items-center gap-1 text-[9px] text-gray-500">
+                  <Loader size={10} className="animate-spin" /> Saving…
+                </span>
+              )}
+              {saveStatus === 'pending' && (
+                <span className="text-[9px] text-yellow-600">Unsaved</span>
+              )}
+              {saveStatus === 'saved' && lastSavedAt && (
+                <span className="text-[9px] text-gray-600">
+                  Saved {Math.max(0, Math.round((Date.now() - lastSavedAt) / 60000))}m ago
+                </span>
+              )}
+              {saveStatus === 'error' && (
+                <span className="text-[9px] text-red-500 flex items-center gap-1">
+                  <CloudOff size={10} /> Save failed
+                </span>
+              )}
+              <button
+                onClick={manualSave}
+                title="Save all projects to database"
+                className="flex items-center justify-center w-6 h-6 rounded text-gray-500 hover:text-white hover:bg-[#333] transition-all"
+              >
+                <Cloud size={11} />
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="flex-1 relative">
         <Canvas
+          key={activeProjectId}
           camera={{ position: [5, 5, 5], fov: 45 }}
           className="transition-opacity duration-500 ease-in-out"
           onPointerMissed={() => {
@@ -458,6 +832,8 @@ const App = () => {
           <pointLight position={[-10, -10, -10]} intensity={1} color="#7C3AED" />
 
           <Exporter />
+          <ScreenshotHelper callbackRef={screenshotRef} />
+          <GroupGizmo />
           {objects.map(obj => (
             <EditableMesh key={obj.id} object={obj} />
           ))}
@@ -468,7 +844,7 @@ const App = () => {
         </div>
 
         {/* Light Controls */}
-        <div className="absolute top-4 right-4 z-10 flex flex-col items-end" onClick={e => e.stopPropagation()}>
+        <div className="absolute top-14 right-4 z-10 flex flex-col items-end" onClick={e => e.stopPropagation()}>
           <button
             onClick={() => setLightOpen(v => !v)}
             className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] font-bold transition-all shadow-lg ${
@@ -640,10 +1016,12 @@ const App = () => {
       </div>
 
       {/* Right Sidebar: Inspector */}
-      <Inspector />
+      <Inspector onScreenshot={() => screenshotRef.current?.()} />
 
       {/* Overlays */}
       <CodeView isOpen={isCodeViewOpen} onClose={() => setCodeViewOpen(false)} />
+
+
 
       {/* BYOK Modal */}
       {isModalOpen && (
@@ -798,7 +1176,7 @@ const App = () => {
                   </div>
 
                   <p className="text-[9px] text-gray-600 leading-relaxed">
-                    Keep the terminal open while using Sculpt3D. The URL stays <span className="font-mono text-gray-500">http://localhost:11434</span>.
+                    Keep the terminal open while using Plenum3D. The URL stays <span className="font-mono text-gray-500">http://localhost:11434</span>.
                   </p>
                 </div>
               </div>

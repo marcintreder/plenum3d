@@ -1,130 +1,195 @@
-# Execution Plan: Sculpt3D (3D Figma)
+# Plenum3D — Development Plan
 
-## ⚡ RESUME STATE — 2026-03-15
+> **For Openclaw factory agents:** This is the active project plan. Read this file first before doing anything. Do NOT execute old tasks — only tasks listed under REMAINING TASKS below.
+> A task is DONE when: (1) code is written and verified, (2) `npm run build` passes with zero errors, (3) git commit exists.
 
-> **CRITICAL: DO NOT INVENT TASKS.** Execute ONLY the numbered tasks under REMAINING TASKS below.
-> A task is only DONE when: (1) git commit exists, (2) npm test passes with ZERO skipped tests.
+---
+
+## Project Overview
+
+**Plenum3D** is an AI-powered 3D modeling web app, deployed at plenum3d.vercel.app.
+
+**Tech stack:**
+- React 19, Vite 6, Three.js r183, React Three Fiber v9.5, @react-three/drei v10.7
+- Tailwind CSS v4, Zustand v5, Vitest v4
+- Google OAuth (access token flow via `useGoogleLogin` hook, NOT FedCM/JWT)
+- Backend: Vercel serverless functions in `api/` directory
+- Database: Neon PostgreSQL (`@neondatabase/serverless`) for settings and projects
+- Deployment: Vercel (GitHub repo: marcintreder/plenum3d)
 
 ---
 
 ## ✅ COMPLETED
 
-- Vite 6 + React 19 + Three.js r183 + React Three Fiber v9.5 + @react-three/drei v10.7
-- Tailwind CSS v4, Zustand v5, Vitest v4, Playwright v1.58
-- Dark viewport: infinite grid, OrbitControls, ambient + directional + point lighting
-- PivotControls gizmo for whole-object translate/rotate/scale
-- Scene hierarchy panel (right sidebar): visibility toggle, delete, select
-- Undo/redo history stack (50-deep), keyboard shortcuts — 14/14 tests passing
-- GLB export + R3F/JSX code export + code viewer modal
-- F1 car generator (20+ parts), Cube/Sphere/Cylinder/Cone primitives
-- AI prompt bar: Ollama connector, reference image upload, BYOK settings panel
-- Inspector: name, position/rotation/scale inputs, color/material, texture/roughness/metalness, CSG booleans
+### App & Auth
+- Google OAuth login via `useGoogleLogin` popup (NOT `GoogleLogin` component — that triggers broken FedCM)
+- Backend auth in `api/_auth.js`: validates access tokens via `https://www.googleapis.com/oauth2/v3/tokeninfo` (NOT `verifyIdToken` — that's JWT-only)
+- User session stored in `localStorage` under key `plenum3d_user`
+- `src/LoginPage.jsx`: Plenum3D branding, capabilities pitch grid (4 features), Sign in with Google button
+- `src/main.jsx`: Root component fetches settings + projects from DB on login, passes `initialData` to App
+- `src/apiClient.js`: `fetchSettings`, `saveSettings`, `fetchProjects`, `saveProjects` (calls `api/settings` and `api/projects`)
+
+### App Core
+- `src/App.jsx`: Full Plenum3D version with:
+  - `App({ user, onLogout, initialData })` props
+  - Keys loaded from `initialData.settings || localStorage("plenum3d_keys")`
+  - User avatar + logout button in sidebar
+  - Projects system: `projects`, `activeProjectId`, `persistProjects`, `switchToProject`, `saveCurrentProject`
+  - Save status: `saveStatus` state, cloud icon in scene tab bar, manual save button
+  - `doSaveToDb()`: auto-saves settings + projects to DB
+  - `GroupGizmo` component with `useFrame` buffer flush (prevents React error #185)
+  - `ScreenshotHelper` component
+  - GitHub feedback link: `https://github.com/marcintreder/plenum3d/issues`
+  - `<Canvas key={activeProjectId}>` remounts canvas on project switch
+
+### AI Generation
+- `src/aiService.js`: Single-pass THREE.js code generation (ALL providers)
+  - System prompt asks model to return JavaScript code (not JSON)
+  - `executeModelCode()`: runs `new Function('THREE', code)(THREE)`, extracts vertices/indices from BufferGeometry
+  - Supports: Anthropic, OpenAI, Gemini, Ollama
+  - Throws on failure (no silent fallback)
+
+### Agent Mode
+- `src/agentService.js`: Natural language commands → tool calls
+  - Scale, smooth, color, material, move, rotate, delete, group, ungroup operations
+  - System prompt references "Plenum3D" (not Sculpt3D)
+
+### Editor
+- Undo/redo (50-deep history stack)
+- Multi-scene tabs with rename/duplicate/delete
+- GLB export, R3F code viewer
+- Inspector: name, position/rotation/scale, color, material, metalness/roughness, CSG booleans
+- Primitives: cube, sphere, cylinder, cone, torus, plane, pyramid, capsule
+- Vertex editing mode (double-click mesh → drag vertices)
+- Edge visualization in vertex mode
+- F1 car default model
+- Light controls (ambient, directional, azimuth, elevation)
+- Console panel for AI generation logs
+
+### Backend
+- `api/_auth.js`: Google tokeninfo verification
+- `api/_db.js`: Neon PostgreSQL helper (`ensureTable`, `getData`, `setData`)
+- `api/settings.js`: GET/PUT user settings
+- `api/projects.js`: GET/PUT user projects
+
+### Persistence
+- `src/utils/Persistence.js`: localStorage key `plenum3d_scene`
+- `src/useStore.jsx`: `loadProject(scenes, activeSceneId)` to restore full project state
 
 ---
 
 ## ❌ REMAINING TASKS
 
-### Task V1 — Draggable Vertex Handles (Figma-style node editing) [BLOCKER]
-**The core editing feature. Nothing else matters until this works.**
+> **IMPORTANT**: Only work on tasks listed here. Do not invent new tasks or "improve" things not listed.
 
-**Files: src/VertexHandles.jsx (NEW), src/EditableMesh.jsx, src/App.jsx**
+### Task P1 — Multi-object select + bulk operations
+**Files: `src/EditableMesh.jsx`, `src/Inspector.jsx`, `src/useKeyboardShortcuts.js`**
 
-**What "Figma-like" means here:**
-- Double-click a mesh → enter vertex edit mode (mesh glows/outline changes)
-- Every vertex shows as a small dot/sphere
-- Hover a vertex → it highlights (cyan)
-- Click a vertex → it selects (bright cyan, slightly larger)
-- Drag a vertex → it moves fluidly in the camera's view plane (exactly like dragging a node in Figma — movement tracks the cursor, not a fixed world axis)
-- Escape → exit vertex mode, back to object mode
-- Clicking empty space → deselects vertex, stays in vertex mode
-- The mesh updates in real-time as vertices move
+- Shift+click a mesh → adds it to `selectedObjectIds` (already in store as `toggleSelectedObjectId`)
+- Inspector: when `selectedObjectIds.length > 1`, show bulk color + material pickers that apply to all selected
+- Keyboard: `Delete` key with multiple selected → delete all
+- Visual: all selected objects show a selection outline (cyan tint or wireframe overlay)
 
-**Technical implementation:**
-1. Create `src/VertexHandles.jsx`:
-   - Renders only when `editMode === 'vertex'` and this object is selected
-   - For each vertex, renders a `<mesh>` (sphere geometry, r=0.04) at the vertex world position
-   - `hoveredIndex` state (null or number)
-   - `draggingIndex` state (null or number)
-   - `dragPlane` ref (THREE.Plane) — set when drag starts, facing the camera
-   - Sphere colors: white (default), #00ffff (hovered), #00ffff bright + scale 1.5x (selected/dragging)
-   - `onPointerOver/Out`: update hoveredIndex, set cursor style
-   - `onPointerDown(e, i)`: stopPropagation, set draggingIndex, build camera-facing drag plane through vertex world pos, attach document pointerup/pointermove handlers
-   - In pointermove: unproject mouse → ray → intersect dragPlane → new world pos → transform back to object local space → updateVertex
-   - In pointerup: clear draggingIndex, saveHistory, remove document listeners
-   - Disable OrbitControls while dragging (pass setOrbitEnabled prop or use store flag)
-
-2. Show wireframe edge overlay in vertex mode:
-   - In `EditableMesh.jsx`, when `editMode === 'vertex'` and selected: render a second `<lineSegments>` using `THREE.EdgesGeometry` over the mesh with cyan color at 40% opacity
-   - This shows the mesh topology (which vertices are connected) — critical for knowing what you're editing
-
-3. Wire up in `App.jsx`:
-   - Pass `setOrbitEnabled` into Canvas context or use a store flag `orbitEnabled`
-   - `<OrbitControls enabled={orbitEnabled} makeDefault />`
-   - Remove old `<JointManipulator />` — replaced by VertexHandles inside EditableMesh
-
-4. Update `EditableMesh.jsx`:
-   - Import and render `<VertexHandles>` when in vertex mode
-   - Keep double-click → vertex mode working
-   - Single click outside any mesh → back to object mode (onPointerMissed on Canvas)
-
-**Definition of done:** double-click a cube → vertices appear as dots → drag any dot → vertex moves fluidly tracking the cursor → mesh deforms in real time → Escape returns to object mode. npm test 14/14, git commit.
+**Definition of done:** shift-click 3 objects, change their color simultaneously, delete them all with Delete key. `npm run build` passes.
 
 ---
 
-### Task V2 — Multi-Vertex Selection + Marquee
-**Files: src/useStore.jsx, src/VertexHandles.jsx**
+### Task P2 — Copy/paste objects (Cmd+C / Cmd+V)
+**Files: `src/useStore.jsx`, `src/useKeyboardShortcuts.js`**
 
-- Store: replace `selectedJointIndex: number|null` with `selectedVertexIndices: number[]` (array for multi-select). Add `setSelectedVertexIndices(indices)`, `toggleVertexSelection(index)`, `clearVertexSelection()`. Keep `selectedJointIndex` as a computed getter (first of selectedVertexIndices) for Inspector backward compat.
-- VertexHandles: shift+click → toggle vertex in selection, drag any selected vertex → move ALL selected vertices by the same delta
-- Marquee: `onPointerDown` on the background plane in vertex mode → drag draws a 2D screen-space rectangle → on pointerup, test which vertex screen projections are inside the rect → select them all
-- Selected vertices: bright cyan. Multiple selected vertices move together.
+- Store: add `clipboard: null` state, `copySelected()` action (deep-clones selected objects into clipboard), `pasteClipboard()` action (generates new IDs, offsets position by [1,0,0])
+- Keyboard shortcuts: `Cmd+C` → `copySelected()`, `Cmd+V` → `pasteClipboard()`
+- Paste should group the pasted objects if the source was a group
 
-**Definition of done:** can shift-click 4 vertices, drag one, all 4 move together. Drag box to select a region. npm test, git commit.
-
----
-
-### Task V3 — Edge Visualization + Precision Controls
-**Files: src/VertexHandles.jsx, src/Inspector.jsx**
-
-- Edges as hoverable lines: In vertex mode, render `THREE.EdgesGeometry` as `<lineSegments>`. When mouse hovers an edge (within ~5px screen distance), highlight it cyan.
-- Clicking an edge selects both its endpoint vertices.
-- Inspector upgrade: when exactly 1 vertex selected, show its X/Y/Z inputs (already there). When multiple selected, show delta-move inputs (type "+0.5" to move all selected by 0.5 on that axis).
-- Axis constraint while dragging: hold X/Y/Z key during drag → constrain movement to that world axis (show axis line as visual feedback)
-
-**Definition of done:** can click an edge to select both endpoints, can type a value to move selected vertices precisely, axis constraint works. npm test, git commit.
+**Definition of done:** copy a multi-part generated model, paste it, both appear side-by-side. `npm run build` passes.
 
 ---
 
-### Task V4 — BYOK Settings + AI Streaming
-**Files: src/App.jsx, src/aiService.js, src/components/GenerationErrorBoundary.jsx (new)**
+### Task P3 — Project management UI
+**Files: `src/App.jsx`**
 
-- Settings panel fully functional: Ollama | OpenAI | Anthropic | Google tabs, URL + key per provider, persisted to localStorage `3d_sculpt_keys`
-- AI service: detect active provider from keys, route to correct API with streaming
-- Stream tokens: show skeleton/spinner in viewport while generating, stream the code output in CodeView
-- Error boundary around generated mesh display — invalid geometry shows error message, doesn't crash
+- Add a project sidebar panel (toggleable, left or bottom of current sidebar)
+- Shows list of saved projects (from `projects` state)
+- Click project → `switchToProject(id)`
+- "+ New project" button → creates empty project, adds to list
+- Double-click project name → rename inline
+- Delete project button (with confirmation)
+- Project thumbnail: use `ScreenshotHelper` to capture a thumbnail when switching away from a project
 
-**Definition of done:** enter Anthropic key → send prompt → see streaming response → mesh appears. npm test, git commit.
-
----
-
-### Task V5 — Grouping + OBJ Export + Visual Polish + Deploy
-**Files: src/useStore.jsx, src/Inspector.jsx, src/Exporter.jsx, src/index.css**
-
-- Group: select 2+ objects, Cmd+G → group them. Group appears as single collapsible entry in Scene Graph. Ungroup: Cmd+Shift+G.
-- OBJ export alongside GLB.
-- Visual polish: glassmorphism panels (backdrop-blur-xl, bg-opacity-80), cyan pulsing ring on selected object outline, data-testid attributes on all interactive elements.
-- Deploy: `vercel deploy --prod` logged in as marcintreder@gmail.com.
-
-**Definition of done:** grouping works, OBJ export works, visual polish applied, deployed to vercel. npm test, git commit.
+**Definition of done:** create 2 projects, switch between them, their scenes are independent. Thumbnails update on switch.
 
 ---
 
-## Technical Stack
-- React 19, Vite 6, Three.js r183, React Three Fiber v9.5, @react-three/drei v10.7
-- Tailwind CSS v4, Zustand v5 — Vitest v4 — Playwright v1.58
-- BYOK: OpenAI / Anthropic / Google / Ollama (localStorage only)
+### Task P4 — AI generation quality: auto-retry on parse error
+**Files: `src/aiService.js`**
 
-## Key Constraints
-- API keys in localStorage only — no server
-- 60FPS during vertex manipulation
-- Drag must track the cursor (camera-plane intersection), not fixed-axis gizmo
+Currently if the generated code throws a runtime error (e.g., syntax error, undefined geometry type), the whole generation fails. Instead:
+- Catch the error from `executeModelCode`
+- Re-send to the model with the error message: "Your previous code threw this error: `${err.message}`. Here is the code: `${code}`. Fix it and return only the corrected array."
+- Max 1 retry per generation
+- Log the retry in the console panel
+
+**Definition of done:** test by generating a prompt that historically fails ("50s pickup truck"), confirm it retries once if it fails and succeeds on the second attempt.
+
+---
+
+## Technical Architecture Notes (for Openclaw)
+
+### Auth flow
+```
+LoginPage → useGoogleLogin popup → access_token
+→ fetch /oauth2/v3/userinfo → { sub, name, email, picture }
+→ onLogin({ id, name, email, picture, credential: access_token })
+→ localStorage.setItem("plenum3d_user", ...)
+→ main.jsx fetches settings + projects → passes as initialData to App
+```
+
+### Backend auth
+```
+api/_auth.js: getUserId(req) → fetch tokeninfo?access_token=TOKEN → info.sub
+```
+**Do NOT use `verifyIdToken`** — that's for JWT tokens, not access tokens.
+
+### AI generation
+```
+src/aiService.js → SYSTEM_PROMPT (asks for JS code)
+→ provider API call → code string
+→ executeModelCode(code) → new Function('THREE', code)(THREE)
+→ descriptors[] → extract BufferGeometry vertices/indices
+→ { isParts: true, name, parts[] }
+→ App.jsx → addObjects(parts, name) → useStore
+```
+
+### Projects vs Scenes
+- A **project** is a named container with multiple scenes + metadata
+- A **scene** is a tab within a project (scene tabs bar in App.jsx)
+- Projects are saved to Neon DB via `api/projects.js`
+- When switching projects, `loadProject(scenes, activeSceneId)` replaces all scenes in the store
+
+### localStorage keys
+- `plenum3d_user` — user session (main.jsx)
+- `plenum3d_keys` — API keys (App.jsx)
+- `plenum3d_scene` — scene backup (Persistence.js)
+
+### Key files
+| File | Purpose |
+|------|---------|
+| `src/main.jsx` | Root: auth state, DB data fetch, routes to LoginPage or App |
+| `src/LoginPage.jsx` | Google OAuth login page |
+| `src/App.jsx` | Main editor: 1200 lines, everything |
+| `src/aiService.js` | AI generation (single-pass THREE.js code) |
+| `src/agentService.js` | Natural language → tool calls |
+| `src/useStore.jsx` | Zustand store: all 3D state |
+| `src/apiClient.js` | Frontend API client |
+| `api/_auth.js` | Backend: verify Google tokens |
+| `api/_db.js` | Backend: Neon PostgreSQL |
+| `api/settings.js` | Backend: GET/PUT /api/settings |
+| `api/projects.js` | Backend: GET/PUT /api/projects |
+
+### Environment variables (Vercel)
+- `VITE_GOOGLE_CLIENT_ID` — Google OAuth client ID
+- `DATABASE_URL` or `POSTGRES_URL` — Neon connection string
+
+### Git discipline
+- **Always commit after every change** — one logical change per commit
+- Commit message format: `verb: description` (e.g., `fix: prevent React error #185 in GroupGizmo`)
