@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { generateF1 } from './f1Model';
+import { buildPrimitiveMesh } from './utils/primitiveBuilder';
 import {
   bevelSelectedVertices,
   subdivideEdge as meshSubdivideEdge,
@@ -361,7 +362,12 @@ const useStore = create((set, get) => ({
     let vertices = [];
     let indices = [];
 
-    if (type === 'cube') {
+    // New shapes delegate to shared primitive builder
+    if (['torus', 'plane', 'pyramid', 'capsule'].includes(type)) {
+      const result = buildPrimitiveMesh(type, [1, 1, 1]);
+      vertices = result.vertices;
+      indices = result.indices;
+    } else if (type === 'cube') {
       vertices = [
         [-0.5,-0.5,-0.5], [0.5,-0.5,-0.5], [0.5,0.5,-0.5], [-0.5,0.5,-0.5],
         [-0.5,-0.5,0.5], [0.5,-0.5,0.5], [0.5,0.5,0.5], [-0.5,0.5,0.5]

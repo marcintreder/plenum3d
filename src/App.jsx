@@ -4,7 +4,8 @@ import { OrbitControls, Grid } from "@react-three/drei";
 import {
   Settings, Download, Circle, Square,
   Triangle, Cylinder as CylinderIcon, Code,
-  Undo2, Redo2, Bot, Sparkles, Paperclip, Terminal, Sun
+  Undo2, Redo2, Bot, Sparkles, Paperclip, Terminal, Sun,
+  Disc, Minus, Mountain, Pill
 } from "lucide-react";
 import ConsolePanel from "./components/ConsolePanel";
 import EditableMesh from "./EditableMesh";
@@ -99,6 +100,9 @@ const App = () => {
     addGroup,
     setObjectGroup,
   } = useStore();
+
+  // True when at least one AI backend is explicitly configured
+  const hasProvider = !!(keys.Anthropic || keys.OpenAI || keys.Gemini || keys['Ollama Generate Model']);
 
   // Available providers — Auto plus any configured ones
   const providerOptions = useMemo(() => {
@@ -329,10 +333,14 @@ const App = () => {
           <div className="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-2">Primitives</div>
           <div className="grid grid-cols-2 gap-2">
             {[
-              { id: 'cube', icon: Square, label: 'Cube' },
-              { id: 'sphere', icon: Circle, label: 'Sphere' },
+              { id: 'cube',     icon: Square,       label: 'Cube' },
+              { id: 'sphere',   icon: Circle,       label: 'Sphere' },
               { id: 'cylinder', icon: CylinderIcon, label: 'Cylinder' },
-              { id: 'cone', icon: Triangle, label: 'Cone', class: 'rotate-180' }
+              { id: 'cone',     icon: Triangle,     label: 'Cone', class: 'rotate-180' },
+              { id: 'torus',    icon: Disc,         label: 'Torus' },
+              { id: 'plane',    icon: Minus,        label: 'Plane' },
+              { id: 'pyramid',  icon: Mountain,     label: 'Pyramid' },
+              { id: 'capsule',  icon: Pill,         label: 'Capsule' },
             ].map(prim => (
               <button 
                 key={prim.id}
@@ -593,24 +601,36 @@ const App = () => {
             <input
               type="text"
               placeholder={
-                isGenerating
-                  ? (isCommandMode ? "Executing command..." : "Synthesizing geometry...")
-                  : isCommandMode
-                    ? "Agent: 'decrease wheel size by 50%'"
-                    : "Generate: 'A vintage radio'"
+                !hasProvider
+                  ? "Add an API key in Settings to generate models…"
+                  : isGenerating
+                    ? (isCommandMode ? "Executing command..." : "Synthesizing geometry...")
+                    : isCommandMode
+                      ? "Agent: 'decrease wheel size by 50%'"
+                      : "Generate: 'A vintage radio'"
               }
-              disabled={isGenerating}
+              disabled={isGenerating || !hasProvider}
               value={prompt}
               onChange={(e) => { setPrompt(e.target.value); if (agentFeedback) setAgentFeedback(null); }}
               onKeyDown={handleKeyDown}
-              className={`w-full bg-[#1A1A1A]/90 backdrop-blur-2xl border p-5 rounded-3xl outline-none transition-all text-sm pl-12 pr-12 text-white font-medium shadow-2xl ${
-                isGenerating
-                  ? (isCommandMode ? 'border-[#EA580C] shadow-[0_0_20px_rgba(234,88,12,0.3)] animate-pulse' : 'border-[#7C3AED] shadow-[0_0_20px_rgba(124,58,237,0.3)] animate-pulse')
-                  : isCommandMode
-                    ? 'border-[#EA580C]/40 focus:border-[#EA580C]'
-                    : 'border-[#333] focus:border-[#7C3AED]'
+              className={`w-full bg-[#1A1A1A]/90 backdrop-blur-2xl border p-5 rounded-3xl outline-none transition-all text-sm pl-12 pr-12 font-medium shadow-2xl ${
+                !hasProvider
+                  ? 'border-[#333] text-gray-600 cursor-not-allowed'
+                  : isGenerating
+                    ? (isCommandMode ? 'border-[#EA580C] shadow-[0_0_20px_rgba(234,88,12,0.3)] animate-pulse text-white' : 'border-[#7C3AED] shadow-[0_0_20px_rgba(124,58,237,0.3)] animate-pulse text-white')
+                    : isCommandMode
+                      ? 'border-[#EA580C]/40 focus:border-[#EA580C] text-white'
+                      : 'border-[#333] focus:border-[#7C3AED] text-white'
               }`}
             />
+            {!hasProvider && (
+              <button
+                onClick={() => setModalOpen(true)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] bg-[#7C3AED] hover:brightness-110 px-2.5 py-1 rounded-lg text-white font-bold transition-all"
+              >
+                Settings
+              </button>
+            )}
             <div className={`absolute right-4 top-1/2 -translate-y-1/2 text-[10px] bg-[#333] px-2 py-1 rounded-md text-gray-400 font-mono transition-opacity duration-200 ${prompt ? 'opacity-100' : 'opacity-0'}`}>
               {isGenerating ? "..." : "⏎"}
             </div>

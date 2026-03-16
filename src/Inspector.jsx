@@ -793,10 +793,21 @@ const Inspector = () => {
         ) : (
           <div className="h-full flex flex-col items-center justify-center text-gray-700 text-center p-8 opacity-50">
             <Layers size={40} className="mb-4 text-[#7C3AED] opacity-20" />
-            <p className="text-xs italic uppercase tracking-widest font-black">Canvas Empty</p>
-            <p className="text-[9px] mt-2 text-gray-500 leading-relaxed max-w-[140px]">
-              Click an object or group to inspect it.
-            </p>
+            {objects.length > 0 ? (
+              <>
+                <p className="text-xs italic uppercase tracking-widest font-black">Nothing Selected</p>
+                <p className="text-[9px] mt-2 text-gray-500 leading-relaxed max-w-[140px]">
+                  Click an object or group on the canvas to inspect it.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-xs italic uppercase tracking-widest font-black">Canvas Empty</p>
+                <p className="text-[9px] mt-2 text-gray-500 leading-relaxed max-w-[140px]">
+                  Add a primitive or generate a model to get started.
+                </p>
+              </>
+            )}
           </div>
         )}
       </div>

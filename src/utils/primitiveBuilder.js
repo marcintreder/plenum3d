@@ -73,6 +73,99 @@ export function buildPrimitiveMesh(type, size = [1, 1, 1]) {
       indices.push(0, curr, next); // side face
       indices.push(1, next, curr); // base cap
     }
+
+  } else if (type === 'torus') {
+    // Donut shape — major radius R from center to tube center, minor radius r for tube
+    const R = w / 2, r = Math.min(w, d) / 6;
+    const ringSegs = 24, tubeSegs = 16;
+    for (let i = 0; i <= ringSegs; i++) {
+      const u = (i / ringSegs) * Math.PI * 2;
+      for (let j = 0; j <= tubeSegs; j++) {
+        const v = (j / tubeSegs) * Math.PI * 2;
+        vertices.push([
+          (R + r * Math.cos(v)) * Math.cos(u),
+          r * Math.sin(v),
+          (R + r * Math.cos(v)) * Math.sin(u),
+        ]);
+      }
+    }
+    for (let i = 0; i < ringSegs; i++) {
+      for (let j = 0; j < tubeSegs; j++) {
+        const a = i * (tubeSegs + 1) + j;
+        const b = a + tubeSegs + 1;
+        indices.push(a, b, a + 1, b, b + 1, a + 1);
+      }
+    }
+
+  } else if (type === 'plane') {
+    // Flat subdivided quad on XZ plane
+    const hw = w / 2, hd = d / 2, segs = 6;
+    for (let iz = 0; iz <= segs; iz++) {
+      for (let ix = 0; ix <= segs; ix++) {
+        vertices.push([-hw + (ix / segs) * w, 0, -hd + (iz / segs) * d]);
+      }
+    }
+    for (let iz = 0; iz < segs; iz++) {
+      for (let ix = 0; ix < segs; ix++) {
+        const a = iz * (segs + 1) + ix;
+        const b = a + segs + 1;
+        indices.push(a, b, a + 1, b, b + 1, a + 1);
+      }
+    }
+
+  } else if (type === 'pyramid') {
+    // Square-base pyramid
+    const hw = w / 2, hd = d / 2;
+    vertices = [
+      [-hw, -h / 2, -hd], // 0
+      [ hw, -h / 2, -hd], // 1
+      [ hw, -h / 2,  hd], // 2
+      [-hw, -h / 2,  hd], // 3
+      [  0,  h / 2,   0], // 4 apex
+    ];
+    indices = [
+      0, 1, 4,  1, 2, 4,  2, 3, 4,  3, 0, 4, // sides
+      0, 2, 1,  0, 3, 2,                       // base
+    ];
+
+  } else if (type === 'capsule') {
+    // Cylinder body + hemispherical caps
+    const radius = w / 2;
+    const bodyH = Math.max(0, h - w);
+    const capSegs = 8, radSegs = 20;
+    // Bottom cap (upside-down hemisphere)
+    for (let lat = capSegs; lat >= 0; lat--) {
+      const theta = (lat / capSegs) * (Math.PI / 2);
+      for (let lon = 0; lon <= radSegs; lon++) {
+        const phi = (lon / radSegs) * Math.PI * 2;
+        vertices.push([
+          radius * Math.sin(theta) * Math.cos(phi),
+          -bodyH / 2 - radius * Math.cos(theta),
+          radius * Math.sin(theta) * Math.sin(phi),
+        ]);
+      }
+    }
+    // Top cap
+    for (let lat = 0; lat <= capSegs; lat++) {
+      const theta = (lat / capSegs) * (Math.PI / 2);
+      for (let lon = 0; lon <= radSegs; lon++) {
+        const phi = (lon / radSegs) * Math.PI * 2;
+        vertices.push([
+          radius * Math.sin(theta) * Math.cos(phi),
+          bodyH / 2 + radius * Math.cos(theta),
+          radius * Math.sin(theta) * Math.sin(phi),
+        ]);
+      }
+    }
+    const cols = radSegs + 1;
+    const rows = (capSegs + 1) * 2;
+    for (let r = 0; r < rows - 1; r++) {
+      for (let c = 0; c < radSegs; c++) {
+        const a = r * cols + c;
+        const b = a + cols;
+        indices.push(a, b, a + 1, b, b + 1, a + 1);
+      }
+    }
   }
 
   return { vertices, indices };
