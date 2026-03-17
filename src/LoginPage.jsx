@@ -1,5 +1,6 @@
 import React from 'react';
 import { useGoogleLogin } from '@react-oauth/google';
+import { TOKEN_LIFETIME_MS } from './AuthProvider.jsx';
 
 const GoogleIcon = () => (
   <svg width="18" height="18" viewBox="0 0 48 48">
@@ -23,6 +24,7 @@ const LoginPage = ({ onLogin }) => {
         email: userInfo.email,
         picture: userInfo.picture,
         credential: tokenResponse.access_token,
+        tokenExpiresAt: Date.now() + TOKEN_LIFETIME_MS,
       });
     },
     onError: (err) => console.error('Google sign-in failed', err),
