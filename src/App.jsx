@@ -23,10 +23,10 @@ import { saveSettings, saveProjects } from "./apiClient";
 import { getObjectIdsInMarquee } from "./utils/marqueeIntersection";
 
 // Lives inside <Canvas> — exposes a screenshot function via callback ref
-const ScreenshotHelper = ({ callbackRef }) => {
+const ScreenshotHelper = ({ onCapture }) => {
   const { gl, scene, camera } = useThree();
   useEffect(() => {
-    callbackRef.current = () => {
+    onCapture.current = () => {
       const prevBg = scene.background;
       scene.background = null;
       gl.setClearColor(0x000000, 0);
@@ -34,12 +34,9 @@ const ScreenshotHelper = ({ callbackRef }) => {
       const url = gl.domElement.toDataURL('image/png');
       scene.background = prevBg;
       gl.setClearColor(0x0F0F0F, 1);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'sculpt3d-scene.png';
-      a.click();
+      return url;
     };
-  }, [gl, scene, camera, callbackRef]);
+  }, [gl, scene, camera, onCapture]);
   return null;
 };
 
@@ -178,6 +175,16 @@ const App = ({ user, onLogout, initialData }) => {
   const [renameProjectValue, setRenameProjectValue] = useState('');
 
   const screenshotRef = React.useRef(null);
+  const handleScreenshot = useCallback(() => {
+    const dataUrl = screenshotRef.current?.();
+    if (!dataUrl) return;
+    
+    // Update active project with the new thumbnail
+    const updated = projects.map(p =>
+      p.id === activeProjectId ? { ...p, thumbnail: dataUrl } : p
+    );
+    persistProjects(updated);
+  }, [projects, activeProjectId, persistProjects]);
 
   // ── Marquee selection ────────────────────────────────────────────────────────
   const cameraRef = React.useRef(null);
@@ -669,7 +676,10 @@ const App = ({ user, onLogout, initialData }) => {
                     className="bg-[#333] border border-[#7C3AED]/60 rounded px-1 py-0.5 text-[10px] outline-none text-white w-full"
                   />
                 ) : (
-                  <span className="truncate flex-1">{proj.name}</span>
+                  <>
+                    {proj.thumbnail && <img src={proj.thumbnail} alt="thumb" className="w-5 h-5 rounded object-cover mr-1.5" />}
+                    <span className="truncate flex-1">{proj.name}</span>
+                  </>
                 )}
                 {projects.length > 1 && !renamingProjectId && (
                   <button
@@ -890,7 +900,7 @@ const App = ({ user, onLogout, initialData }) => {
           <pointLight position={[-10, -10, -10]} intensity={1} color="#7C3AED" />
 
           <Exporter />
-          <ScreenshotHelper callbackRef={screenshotRef} />
+          <ScreenshotHelper onCapture={screenshotRef} />
           <MarqueeCameraSync cameraRef={cameraRef} />
           <GroupGizmo />
           {objects.map(obj => (
@@ -1086,7 +1096,7 @@ const App = ({ user, onLogout, initialData }) => {
       </div>
 
       {/* Right Sidebar: Inspector */}
-      <Inspector onScreenshot={() => screenshotRef.current?.()} />
+      <Inspector onScreenshot={handleScreenshot} />
 
       {/* Overlays */}
       <CodeView isOpen={isCodeViewOpen} onClose={() => setCodeViewOpen(false)} />
