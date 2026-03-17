@@ -58,7 +58,7 @@
 
 ---
 
-### Task P5 — Playwright E2E smoke tests
+### Task P5 — Playwright E2E smoke tests [COMPLETED]
 **Files: `playwright.config.js` (new), `src/test/fix_verification.test.js`, `package.json`**
 
 Set up Playwright to smoke-test the UI shell. The 3D canvas is not testable via DOM — only test what is.
