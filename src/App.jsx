@@ -8,6 +8,7 @@ import {
   Disc, Minus, Mountain, Pill, MessageSquare, Cloud, CloudOff, Loader
 } from "lucide-react";
 import ConsolePanel from "./components/ConsolePanel";
+import ProjectThumbnails from "./components/ProjectThumbnails";
 
 import EditableMesh from "./EditableMesh";
 import Inspector from "./Inspector";
@@ -627,82 +628,24 @@ const App = ({ user, onLogout, initialData }) => {
         </div>
 
         {/* Projects */}
-        <div className="flex flex-col gap-1 mt-2">
-          <div className="flex items-center justify-between mb-1">
-            <div className="text-[10px] uppercase tracking-widest text-gray-500 font-bold">Projects</div>
-            <div className="flex gap-1">
-              <button
-                onClick={() => {
-                  saveCurrentProject();
-                  const pid = Math.random().toString(36).substr(2, 9);
-                  const newProject = { id: pid, name: `Project ${projects.length + 1}` };
-                  const updated = [...projects, newProject];
-                  persistProjects(updated, pid);
-                  loadProject([{ id: 'scene-init', name: 'Scene 1', objects: [], groups: [], history: [[]], historyIndex: 0 }], 'scene-init');
-                }}
-                className="text-[9px] px-1.5 py-0.5 bg-[#333] hover:bg-[#444] rounded text-gray-400 hover:text-white transition-all"
-                title="New project"
-              >+</button>
-            </div>
-          </div>
-          <div className="space-y-0.5 max-h-40 overflow-y-auto">
-            {projects.map(proj => (
-              <div
-                key={proj.id}
-                onClick={() => switchToProject(proj.id)}
-                onDoubleClick={() => { setRenamingProjectId(proj.id); setRenameProjectValue(proj.name); }}
-                className={`group/proj flex items-center justify-between px-2 py-1.5 rounded cursor-pointer transition-all text-[10px] ${
-                  proj.id === activeProjectId ? 'bg-[#7C3AED]/20 text-white' : 'text-gray-500 hover:bg-[#333] hover:text-gray-300'
-                }`}
-              >
-                {renamingProjectId === proj.id ? (
-                  <input
-                    autoFocus
-                    value={renameProjectValue}
-                    onChange={e => setRenameProjectValue(e.target.value)}
-                    onBlur={() => {
-                      const updated = projects.map(p => p.id === proj.id ? { ...p, name: renameProjectValue || proj.name } : p);
-                      persistProjects(updated);
-                      setRenamingProjectId(null);
-                    }}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter' || e.key === 'Escape') {
-                        const updated = projects.map(p => p.id === proj.id ? { ...p, name: renameProjectValue || proj.name } : p);
-                        persistProjects(updated);
-                        setRenamingProjectId(null);
-                      }
-                    }}
-                    onClick={e => e.stopPropagation()}
-                    className="bg-[#333] border border-[#7C3AED]/60 rounded px-1 py-0.5 text-[10px] outline-none text-white w-full"
-                  />
-                ) : (
-                  <>
-                    {proj.thumbnail && <img src={proj.thumbnail} alt="thumb" className="w-5 h-5 rounded object-cover mr-1.5" />}
-                    <span className="truncate flex-1">{proj.name}</span>
-                  </>
-                )}
-                {projects.length > 1 && !renamingProjectId && (
-                  <button
-                    onClick={e => {
-                      e.stopPropagation();
-                      if (proj.id === activeProjectId) {
-                        const idx = projects.findIndex(p => p.id === proj.id);
-                        const remaining = projects.filter(p => p.id !== proj.id);
-                        persistProjects(remaining, remaining[Math.max(0, idx-1)]?.id);
-                        const next = remaining[Math.max(0, idx-1)];
-                        if (next?.scenes?.length) loadProject(next.scenes, next.activeSceneId || next.scenes[0]?.id);
-                      } else {
-                        const remaining = projects.filter(p => p.id !== proj.id);
-                        persistProjects(remaining);
-                      }
-                    }}
-                    className="opacity-0 group-hover/proj:opacity-100 text-gray-600 hover:text-red-400 ml-1 transition-opacity"
-                  >×</button>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
+        <ProjectThumbnails
+          projects={projects}
+          activeProjectId={activeProjectId}
+          onSelect={switchToProject}
+          onRename={(id, name) => { setRenamingProjectId(id); setRenameProjectValue(name); }}
+          onDelete={(id) => {
+            if (id === activeProjectId) {
+              const idx = projects.findIndex(p => p.id === id);
+              const remaining = projects.filter(p => p.id !== id);
+              persistProjects(remaining, remaining[Math.max(0, idx-1)]?.id);
+              const next = remaining[Math.max(0, idx-1)];
+              if (next?.scenes?.length) loadProject(next.scenes, next.activeSceneId || next.scenes[0]?.id);
+            } else {
+              const remaining = projects.filter(p => p.id !== id);
+              persistProjects(remaining);
+            }
+          }}
+        />
 
         <div className="flex flex-col gap-1 mt-4">
           <div className="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-2">Primitives</div>
