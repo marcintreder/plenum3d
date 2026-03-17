@@ -79,6 +79,21 @@ function stripFences(text) {
   return (text || '').replace(/^```(?:javascript|js)?\s*/m, '').replace(/```\s*$/m, '').trim();
 }
 
+async function executeWithRetry(fn, ...args) {
+  const [prompt, referenceImage, apiKey, log, provider, model] = args;
+  try {
+    return await fn(...args);
+  } catch (error) {
+    log('warn', `Generation attempt 1 failed: ${error.message}. Retrying...`);
+    try {
+      return await fn(...args);
+    } catch (retryError) {
+      log('error', `Retry attempt failed: ${retryError.message}`);
+      throw retryError;
+    }
+  }
+}
+
 function executeModelCode(code, name) {
   // eslint-disable-next-line no-new-func
   const fn = new Function('THREE', code);
@@ -313,15 +328,19 @@ export const generate3DModel = async (
   const openAIModel    = modelOverride || keys['OpenAI Generate Model']    || null;
   const geminiModel    = modelOverride || keys['Gemini Generate Model']    || null;
 
-  try {
-    if      (providerOverride === 'Anthropic' || (!providerOverride && Anthropic))
-      return await generateWithAnthropic(prompt, referenceImage, Anthropic, log, anthropicModel);
-    else if (providerOverride === 'OpenAI'    || (!providerOverride && OpenAI))
-      return await generateWithOpenAI(prompt, referenceImage, OpenAI, log, openAIModel);
-    else if (providerOverride === 'Gemini'    || (!providerOverride && Gemini))
-      return await generateWithGemini(prompt, referenceImage, Gemini, log, geminiModel);
+  const runGeneration = async (p, ref, k, l, prov, mod) => {
+    if      (prov === 'Anthropic' || (!prov && k.Anthropic))
+      return await generateWithAnthropic(p, ref, k.Anthropic, l, mod);
+    else if (prov === 'OpenAI'    || (!prov && k.OpenAI))
+      return await generateWithOpenAI(p, ref, k.OpenAI, l, mod);
+    else if (prov === 'Gemini'    || (!prov && k.Gemini))
+      return await generateWithGemini(p, ref, k.Gemini, l, mod);
     else
-      return await generateWithOllama(prompt, referenceImage, ollamaUrl, ollamaGenerateModel, log);
+      return await generateWithOllama(p, ref, ollamaUrl, mod || ollamaGenerateModel, l);
+  };
+
+  try {
+    return await executeWithRetry(runGeneration, prompt, referenceImage, keys, log, providerOverride, modelOverride);
   } catch (error) {
     if (error.name === 'AbortError') {
       log('error', 'Ollama timed out after 3 minutes.');

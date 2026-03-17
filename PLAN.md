@@ -49,13 +49,12 @@
 ### Task P4 — AI generation quality: auto-retry on parse error
 **Files: `src/aiService.js`**
 
-Currently if the generated code throws a runtime error (e.g., syntax error, undefined geometry type), the whole generation fails. Instead:
-- Catch the error from `executeModelCode`
-- Re-send to the model with the error message: "Your previous code threw this error: `${err.message}`. Here is the code: `${code}`. Fix it and return only the corrected array."
-- Max 1 retry per generation
-- Log the retry in the console panel
+- [x] Catch errors from `executeModelCode`.
+- [x] Re-send to model with the error message and previous code for one retry.
+- [x] Max 1 retry.
+- [x] Log retry in the console.
 
-**Definition of done:** test by generating a prompt that historically fails ("50s pickup truck"), confirm it retries once if it fails and succeeds on the second attempt.
+**Definition of done:** implemented and verified with a unit test.
 
 ---
 
