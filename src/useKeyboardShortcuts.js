@@ -65,8 +65,13 @@ const useKeyboardShortcuts = () => {
       // --- Simple Shortcuts ---
 
       // Delete (Backspace/Delete)
-      if ((key === 'backspace' || key === 'delete') && selectedObjectId) {
-        deleteObject(selectedObjectId);
+      if ((key === 'backspace' || key === 'delete')) {
+        e.preventDefault();
+        if (selectedObjectIds.length > 0) {
+          selectedObjectIds.forEach(id => deleteObject(id));
+        } else if (selectedObjectId) {
+          deleteObject(selectedObjectId);
+        }
       }
 
       // Escape: exit vertex mode first, then deselect on second press

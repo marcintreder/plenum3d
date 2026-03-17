@@ -47,15 +47,33 @@ const EditableMesh = ({ object }) => {
       color: object.color,
       metalness: object.metalness ?? 0.5,
       roughness: object.roughness ?? 0.5,
-      transparent: isVertexMode,
+      transparent: isVertexMode || isSelected,
       opacity: isVertexMode ? 0.6 : 1.0,
-      emissive: multiSelectGlow ? '#7C3AED' : '#000000',
-      emissiveIntensity: multiSelectGlow ? 0.4 : 0,
+      emissive: multiSelectGlow ? '#06B6D4' : '#000000',
+      emissiveIntensity: multiSelectGlow ? 0.6 : 0,
     };
     if (object.materialType === 'wireframe') return <meshStandardMaterial {...props} wireframe />;
     if (object.materialType === 'physical')  return <meshPhysicalMaterial  {...props} />;
     return <meshStandardMaterial {...props} />;
   }, [object.color, object.materialType, object.metalness, object.roughness, isVertexMode, isSelected, isPrimary]);
+
+  // Add selection outline when selected
+  const SelectionOutline = () => {
+    if (!isSelected) return null;
+    return (
+      <mesh
+        position={object.position || [0, 0, 0]}
+        rotation={object.rotation || [0, 0, 0]}
+        scale={(object.scale || [1, 1, 1]).map(s => s * 1.02)}
+      >
+        <bufferGeometry ref={geomRef}>
+          <bufferAttribute attach="attributes-position" count={flatVertices.length / 3} array={flatVertices} itemSize={3} />
+          <bufferAttribute attach="index"               count={flatIndices.length}       array={flatIndices}  itemSize={1} />
+        </bufferGeometry>
+        <meshBasicMaterial color="#06B6D4" wireframe transparent opacity={0.3} depthWrite={false} />
+      </mesh>
+    );
+  };
 
   const handlePointerDown = useCallback((e) => {
     if (isVertexMode) return;
@@ -67,13 +85,8 @@ const EditableMesh = ({ object }) => {
       return;
     }
 
-    // Group selection: first click on a grouped object selects the group.
-    // We still fall through to start the drag so the object moves immediately.
-    if (object.groupId && selectedGroupId !== object.groupId) {
-      setSelectedGroupId(object.groupId);
-    } else {
-      setSelectedObjectId(object.id);
-    }
+    // Always select clicked object as primary (even if it's already in the multi-select set)
+    setSelectedObjectId(object.id);
 
     const cameraDir = new THREE.Vector3();
     camera.getWorldDirection(cameraDir);
@@ -152,36 +165,29 @@ const EditableMesh = ({ object }) => {
 
   if (!object.visible) return null;
 
-  const meshElement = (
-    <mesh
-      ref={meshRef}
-      position={object.position || [0, 0, 0]}
-      rotation={object.rotation || [0, 0, 0]}
-      scale={object.scale    || [1, 1, 1]}
-      onPointerDown={handlePointerDown}
-      onDoubleClick={handleDoubleClick}
-      onPointerMissed={() => setSelectedJointIndex(null)}
-    >
-      {flatVertices.length > 0 && flatIndices.length > 0 && (
-        <bufferGeometry ref={geomRef}>
-          <bufferAttribute attach="attributes-position" count={flatVertices.length / 3} array={flatVertices} itemSize={3} />
-          <bufferAttribute attach="index"               count={flatIndices.length}       array={flatIndices}  itemSize={1} />
-        </bufferGeometry>
-      )}
-      {Material}
-    </mesh>
+  return (
+    <group>
+      <mesh
+        ref={meshRef}
+        position={object.position || [0, 0, 0]}
+        rotation={object.rotation || [0, 0, 0]}
+        scale={object.scale    || [1, 1, 1]}
+        onPointerDown={handlePointerDown}
+        onDoubleClick={handleDoubleClick}
+        onPointerMissed={() => setSelectedJointIndex(null)}
+      >
+        {flatVertices.length > 0 && flatIndices.length > 0 && (
+          <bufferGeometry ref={geomRef}>
+            <bufferAttribute attach="attributes-position" count={flatVertices.length / 3} array={flatVertices} itemSize={3} />
+            <bufferAttribute attach="index"               count={flatIndices.length}       array={flatIndices}  itemSize={1} />
+          </bufferGeometry>
+        )}
+        {Material}
+      </mesh>
+      {isSelected && <SelectionOutline />}
+      {isVertexMode && <VertexHandles object={object} />}
+    </group>
   );
-
-  if (isVertexMode) {
-    return (
-      <group>
-        {meshElement}
-        <VertexHandles object={object} />
-      </group>
-    );
-  }
-
-  return meshElement;
 };
 
 export default EditableMesh;

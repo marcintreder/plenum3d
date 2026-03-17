@@ -76,6 +76,10 @@
 - `src/utils/Persistence.js`: localStorage key `plenum3d_scene`
 - `src/useStore.jsx`: `loadProject(scenes, activeSceneId)` to restore full project state
 
+### Auth & UI (Phase 2)
+- Persistent Auth: Silent refresh of Google access tokens 5min before expiry.
+- Selective Code Copy: UI support for copying partial code segments from the editor.
+
 ---
 
 ## ❌ REMAINING TASKS
