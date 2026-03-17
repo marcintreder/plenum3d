@@ -14,11 +14,13 @@ import Inspector from "./Inspector";
 import Exporter from "./Exporter";
 import CodeView from "./CodeView";
 
+import * as THREE from "three";
 import useStore from "./useStore";
 import useKeyboardShortcuts from "./useKeyboardShortcuts";
 import { generate3DModel } from "./aiService";
 import { executeAgentCommand, resolveTargets } from "./agentService";
 import { saveSettings, saveProjects } from "./apiClient";
+import { getObjectIdsInMarquee } from "./utils/marqueeIntersection";
 
 // Lives inside <Canvas> — exposes a screenshot function via callback ref
 const ScreenshotHelper = ({ callbackRef }) => {
@@ -142,6 +144,13 @@ const MODEL_LABELS = {
   'gemini-2.5-pro':          'Pro 2.5',
 };
 
+// Lives inside <Canvas> — syncs the Three.js camera to an external ref
+const MarqueeCameraSync = ({ cameraRef }) => {
+  const { camera } = useThree();
+  useEffect(() => { cameraRef.current = camera; }, [camera, cameraRef]);
+  return null;
+};
+
 const App = ({ user, onLogout, initialData }) => {
   const [isModalOpen, setModalOpen] = useState(false);
   const [isCodeViewOpen, setCodeViewOpen] = useState(false);
@@ -169,6 +178,50 @@ const App = ({ user, onLogout, initialData }) => {
   const [renameProjectValue, setRenameProjectValue] = useState('');
 
   const screenshotRef = React.useRef(null);
+
+  // ── Marquee selection ────────────────────────────────────────────────────────
+  const cameraRef = React.useRef(null);
+  const marqueeStartRef = React.useRef(null);
+  const [marquee, setMarquee] = useState(null); // { x1, y1, x2, y2 } in px or null
+
+  const handleMarqueePointerDown = useCallback((e) => {
+    if (useStore.getState().meshPointerActive) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    marqueeStartRef.current = {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    };
+  }, []);
+
+  const handleMarqueePointerMove = useCallback((e) => {
+    if (!marqueeStartRef.current) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const dx = x - marqueeStartRef.current.x;
+    const dy = y - marqueeStartRef.current.y;
+    if (marquee || Math.hypot(dx, dy) > 5) {
+      setMarquee({ x1: marqueeStartRef.current.x, y1: marqueeStartRef.current.y, x2: x, y2: y });
+    }
+  }, [marquee]);
+
+  const handleMarqueePointerUp = useCallback((e) => {
+    if (!marqueeStartRef.current) return;
+    if (marquee && cameraRef.current) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const { width, height } = rect;
+      const camera = cameraRef.current;
+      const projectToScreen = (position) => {
+        const vec = new THREE.Vector3(...position);
+        vec.project(camera);
+        return { x: (vec.x + 1) / 2 * width, y: (1 - vec.y) / 2 * height };
+      };
+      const ids = getObjectIdsInMarquee(useStore.getState().objects, marquee, projectToScreen);
+      useStore.getState().selectObjectsInMarquee(ids);
+    }
+    marqueeStartRef.current = null;
+    setMarquee(null);
+  }, [marquee]);
 
   // ── Save status ─────────────────────────────────────────────────────────────
   // 'idle' | 'pending' | 'saving' | 'saved' | 'error'
@@ -805,7 +858,12 @@ const App = ({ user, onLogout, initialData }) => {
           )}
         </div>
 
-        <div className="flex-1 relative">
+        <div
+          className="flex-1 relative"
+          onPointerDown={handleMarqueePointerDown}
+          onPointerMove={handleMarqueePointerMove}
+          onPointerUp={handleMarqueePointerUp}
+        >
         <Canvas
           key={activeProjectId}
           camera={{ position: [5, 5, 5], fov: 45 }}
@@ -833,6 +891,7 @@ const App = ({ user, onLogout, initialData }) => {
 
           <Exporter />
           <ScreenshotHelper callbackRef={screenshotRef} />
+          <MarqueeCameraSync cameraRef={cameraRef} />
           <GroupGizmo />
           {objects.map(obj => (
             <EditableMesh key={obj.id} object={obj} />
@@ -841,6 +900,17 @@ const App = ({ user, onLogout, initialData }) => {
           <Grid infiniteGrid fadeDistance={50} sectionColor="#333" cellColor="#222" />
           <OrbitControls makeDefault enabled={orbitEnabled} />
         </Canvas>
+        {marquee && (
+          <div
+            className="absolute pointer-events-none border border-blue-400/80 bg-blue-400/10"
+            style={{
+              left:   Math.min(marquee.x1, marquee.x2),
+              top:    Math.min(marquee.y1, marquee.y2),
+              width:  Math.abs(marquee.x2 - marquee.x1),
+              height: Math.abs(marquee.y2 - marquee.y1),
+            }}
+          />
+        )}
         </div>
 
         {/* Light Controls */}

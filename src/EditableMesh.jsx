@@ -60,6 +60,7 @@ const EditableMesh = ({ object }) => {
   const handlePointerDown = useCallback((e) => {
     if (isVertexMode) return;
     e.stopPropagation();
+    useStore.getState().setMeshPointerActive(true);
 
     if (e.shiftKey) {
       toggleSelectedObjectId(object.id);
@@ -129,6 +130,7 @@ const EditableMesh = ({ object }) => {
 
     const onUp = () => {
       setOrbitEnabled(true);
+      useStore.getState().setMeshPointerActive(false);
       document.removeEventListener('pointermove', onMove);
       document.removeEventListener('pointerup',   onUp);
     };

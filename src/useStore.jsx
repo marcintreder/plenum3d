@@ -56,6 +56,21 @@ const useStore = create((set, get) => ({
   orbitEnabled: true,
   isGenerating: false,
   exportRequested: false,
+  meshPointerActive: false,
+
+  setMeshPointerActive: (v) => set({ meshPointerActive: v }),
+
+  selectObjectsInMarquee: (ids) => {
+    if (!ids.length) return;
+    set({
+      selectedObjectIds: ids,
+      selectedObjectId: ids[ids.length - 1],
+      selectedGroupId: null,
+      selectedJointIndex: null,
+      selectedVertexIndices: [],
+      editMode: 'object',
+    });
+  },
 
   setEditMode: (mode) => set({
     editMode: mode,
