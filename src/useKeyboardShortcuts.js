@@ -2,13 +2,14 @@ import { useEffect } from 'react';
 import useStore from './useStore';
 
 const useKeyboardShortcuts = () => {
-  const { 
-    selectedObjectId, 
-    deleteObject, 
-    setEditMode, 
+  const {
+    selectedObjectId,
+    deleteObject,
+    setEditMode,
     editMode,
     setSelectedJointIndex,
     setSelectedObjectId,
+    selectAllObjects,
     undo,
     redo,
     addPrimitive,
@@ -30,6 +31,13 @@ const useKeyboardShortcuts = () => {
           e.preventDefault();
           if (e.shiftKey) redo();
           else undo();
+          return;
+        }
+
+        // Select All (Cmd-A)
+        if (key === 'a') {
+          e.preventDefault();
+          selectAllObjects();
           return;
         }
 
@@ -103,7 +111,7 @@ const useKeyboardShortcuts = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedObjectId, deleteObject, setEditMode, editMode, setSelectedJointIndex, setSelectedObjectId, undo, redo, objects, updateObject]);
+  }, [selectedObjectId, deleteObject, setEditMode, editMode, setSelectedJointIndex, setSelectedObjectId, selectAllObjects, undo, redo, objects, updateObject]);
 };
 
 export default useKeyboardShortcuts;

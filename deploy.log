@@ -1,0 +1,16 @@
+file:///opt/homebrew/lib/node_modules/vercel/dist/chunks/chunk-ZLCMHY2G.js:281
+                throw new ArgError(`option requires argument: ${originalArgName}${extended}`, "ARG_MISSING_REQUIRED_LONGARG");
+                      ^
+
+_ArgError: option requires argument: --token
+    at arg2 (file:///opt/homebrew/lib/node_modules/vercel/dist/chunks/chunk-ZLCMHY2G.js:281:23)
+    at getArgs (file:///opt/homebrew/lib/node_modules/vercel/dist/chunks/chunk-ZLCMHY2G.js:670:33)
+    at getGlobalPathConfig (file:///opt/homebrew/lib/node_modules/vercel/dist/chunks/chunk-AQLVWVEN.js:35657:16)
+    at file:///opt/homebrew/lib/node_modules/vercel/dist/chunks/chunk-AKQZ7KG3.js:2240:19
+    at ModuleJob.run (node:internal/modules/esm/module_job:430:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:639:26)
+    at async file:///opt/homebrew/lib/node_modules/vercel/dist/vc.js:36:1 {
+  code: 'ARG_MISSING_REQUIRED_LONGARG'
+}
+
+Node.js v25.8.1

@@ -252,6 +252,19 @@ const useStore = create((set, get) => ({
     });
   },
 
+  selectAllObjects: () => {
+    const { objects } = get();
+    const visibleIds = objects.filter(o => o.visible !== false).map(o => o.id);
+    set({
+      selectedObjectIds: visibleIds,
+      selectedObjectId: visibleIds[visibleIds.length - 1] ?? null,
+      selectedGroupId: null,
+      selectedJointIndex: null,
+      selectedVertexIndices: [],
+      editMode: 'object',
+    });
+  },
+
   updateSelectedObjects: (updates) => {
     const { selectedObjectIds } = get();
     set(state => ({
@@ -336,6 +349,12 @@ const useStore = create((set, get) => ({
     const newObjects = state.objects.map(obj => obj.id === id ? { ...obj, ...updates } : obj);
     return { objects: newObjects };
   }),
+
+  // Patch the vertices and indices of an existing object in-place (used by AI refinement).
+  // Preserves all other object properties (position, color, material, etc.).
+  patchObjectGeometry: (id, vertices, indices) => set((state) => ({
+    objects: state.objects.map(o => o.id === id ? { ...o, vertices, indices } : o),
+  })),
 
   updateObjectTransform: (id, position, rotation, scale) => {
     const newObjects = get().objects.map(obj =>

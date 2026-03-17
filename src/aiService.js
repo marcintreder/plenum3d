@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { extractObjectStructure } from './utils/objectStructure.js';
 
 // ── System prompt ─────────────────────────────────────────────────────────────
 
@@ -247,6 +248,52 @@ async function generateWithOllama(prompt, referenceImage, ollamaUrl, modelOverri
   }
 }
 
+// ── Refinement prompt ─────────────────────────────────────────────────────────
+
+const REFINE_SYSTEM_PROMPT = `You are an expert Three.js 3D artist refining an existing 3D object.
+
+You will receive metadata describing the current object (bounding box, vertex count, materials)
+and instructions for how to change it. Write JavaScript code that produces the refined version.
+
+The code runs with THREE available. Return an array of part descriptors:
+
+return [
+  {
+    geometry: <any THREE.BufferGeometry>,
+    color: '#RRGGBB',
+    name: 'part name',
+    position: [x, y, z],
+    rotation: [rx, ry, rz],   // Euler radians, optional
+    metalness: 0.0,            // optional
+    roughness: 0.5,            // optional
+  },
+  ...
+];
+
+━━━ SPATIAL DISCIPLINE — the only rule that matters ━━━
+
+Define all key dimensions as const variables. Derive EVERY position as math, never a magic number.
+
+  const hullR = 0.22, hullH = 2.0;
+  const wingW = 1.4, wingD = 0.55, wingThick = 0.05;
+  const wingX = hullR + wingW / 2 - 0.03;
+
+Then use those variables in every position:
+  position: [wingX, -0.2, 0.1]   ✓
+  position: [0.85, -0.2, 0.1]    ✗
+
+━━━ REFINEMENT RULES ━━━
+
+- Study the provided bounding box and preserve the overall scale unless asked to resize.
+- Keep the same color and material unless the refinement request mentions changing them.
+- Apply ONLY the changes requested — preserve everything else.
+- Fit within a 4×4×4 unit bounding box, centred near the origin.
+- Return ONLY the JavaScript — no markdown fences, no comments, no explanation.`;
+
+function buildRefinePrompt(structure, userPrompt) {
+  return `Current object metadata:\n${JSON.stringify(structure, null, 2)}\n\nRefinement instructions: ${userPrompt}`;
+}
+
 // ── Main export ───────────────────────────────────────────────────────────────
 
 export const generate3DModel = async (
@@ -281,6 +328,148 @@ export const generate3DModel = async (
       throw new Error('Ollama timed out after 3 minutes. Try a simpler prompt or a faster model.');
     }
     log('error', 'Generation failed: ' + error.message);
+    throw error;
+  }
+};
+
+// ── Refinement export ─────────────────────────────────────────────────────────
+
+/**
+ * Refine an existing 3D object using AI.
+ *
+ * 1. Extracts a structured summary of the object via extractObjectStructure.
+ * 2. Builds a refinement prompt combining the structure + user instruction.
+ * 3. Calls the configured LLM provider with a refinement-focused system prompt.
+ * 4. Returns the same { isParts, name, parts } format as generate3DModel so
+ *    the caller can patch geometry via store.patchObjectGeometry or addObjects.
+ *
+ * @param {Object} object         - Store object (vertices, indices, position, …)
+ * @param {string} userPrompt     - What the user wants changed
+ * @param {Object} keys           - API credentials (same shape as generate3DModel)
+ * @param {Function|null} onLog   - Optional logging callback (type, message)
+ * @param {string|null} providerOverride
+ * @param {string|null} modelOverride
+ * @returns {Promise<{isParts: boolean, name: string, parts: Array}>}
+ */
+export const refineObject = async (
+  object,
+  userPrompt,
+  keys = {},
+  onLog = null,
+  providerOverride = null,
+  modelOverride = null,
+) => {
+  const log = (type, msg) => onLog?.(type, msg);
+  const structure = extractObjectStructure(object);
+  const compositePrompt = buildRefinePrompt(structure, userPrompt);
+
+  const { Anthropic, OpenAI, Gemini } = keys;
+  const ollamaUrl = keys['Ollama URL'] || 'http://localhost:11434';
+  const ollamaGenerateModel = keys['Ollama Generate Model'] || null;
+  const anthropicModel = modelOverride || keys['Anthropic Generate Model'] || null;
+  const openAIModel    = modelOverride || keys['OpenAI Generate Model']    || null;
+  const geminiModel    = modelOverride || keys['Gemini Generate Model']    || null;
+
+  // Temporarily override system prompt for refinement by patching provider calls inline.
+  // We reuse the same provider helpers but swap in the refinement system prompt via a
+  // thin wrapper that replaces SYSTEM_PROMPT text in the request body.
+  const name = object.name || 'Refined Object';
+
+  const callAnthropic = async () => {
+    log('info', `Refining object (Anthropic / ${anthropicModel || 'claude-sonnet-4-6'})…`);
+    const headers = {
+      'Content-Type': 'application/json',
+      'x-api-key': Anthropic,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    };
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST', headers,
+      body: JSON.stringify({
+        model: anthropicModel || 'claude-sonnet-4-6',
+        max_tokens: 4096,
+        system: REFINE_SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: [{ type: 'text', text: compositePrompt }] }],
+      }),
+    });
+    if (!res.ok) throw new Error(`Anthropic error: ${res.statusText}`);
+    const data = await res.json();
+    log('info', 'Executing refined Three.js code…');
+    return executeModelCode(stripFences(data.content[0].text), name);
+  };
+
+  const callOpenAI = async () => {
+    log('info', `Refining object (OpenAI / ${openAIModel || 'gpt-4o-mini'})…`);
+    const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${OpenAI}` };
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST', headers,
+      body: JSON.stringify({
+        model: openAIModel || 'gpt-4o-mini',
+        max_tokens: 4096,
+        messages: [
+          { role: 'system', content: REFINE_SYSTEM_PROMPT },
+          { role: 'user', content: compositePrompt },
+        ],
+      }),
+    });
+    if (!res.ok) throw new Error(`OpenAI error: ${res.statusText}`);
+    const data = await res.json();
+    log('info', 'Executing refined Three.js code…');
+    return executeModelCode(stripFences(data.choices[0].message.content), name);
+  };
+
+  const callGemini = async () => {
+    const m = geminiModel || 'gemini-2.0-flash';
+    log('info', `Refining object (Gemini / ${m})…`);
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${Gemini}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: REFINE_SYSTEM_PROMPT }] },
+          contents: [{ parts: [{ text: compositePrompt }] }],
+        }),
+      }
+    );
+    if (!res.ok) throw new Error(`Gemini error: ${res.statusText}`);
+    const data = await res.json();
+    log('info', 'Executing refined Three.js code…');
+    return executeModelCode(stripFences(data.candidates[0].content.parts[0].text), name);
+  };
+
+  const callOllama = async () => {
+    const modelName = ollamaGenerateModel || 'mistral';
+    log('info', `Refining object (Ollama / ${modelName})…`);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 180_000);
+    try {
+      const res = await fetch(`${ollamaUrl}/api/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: modelName, prompt: compositePrompt, system: REFINE_SYSTEM_PROMPT, stream: false }),
+        signal: controller.signal,
+      });
+      if (!res.ok) throw new Error(`Ollama error: ${res.statusText}`);
+      const data = await res.json();
+      log('info', 'Executing refined Three.js code…');
+      return executeModelCode(stripFences(data.response || ''), name);
+    } finally {
+      clearTimeout(timeout);
+    }
+  };
+
+  try {
+    if      (providerOverride === 'Anthropic' || (!providerOverride && Anthropic)) return await callAnthropic();
+    else if (providerOverride === 'OpenAI'    || (!providerOverride && OpenAI))    return await callOpenAI();
+    else if (providerOverride === 'Gemini'    || (!providerOverride && Gemini))    return await callGemini();
+    else                                                                            return await callOllama();
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      log('error', 'Ollama timed out after 3 minutes.');
+      throw new Error('Ollama timed out after 3 minutes. Try a simpler prompt or a faster model.');
+    }
+    log('error', 'Refinement failed: ' + error.message);
     throw error;
   }
 };
