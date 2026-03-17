@@ -176,16 +176,6 @@ const App = ({ user, onLogout, initialData }) => {
   const [renameProjectValue, setRenameProjectValue] = useState('');
 
   const screenshotRef = React.useRef(null);
-  const handleScreenshot = useCallback(() => {
-    const dataUrl = screenshotRef.current?.();
-    if (!dataUrl) return;
-    
-    // Update active project with the new thumbnail
-    const updated = projects.map(p =>
-      p.id === activeProjectId ? { ...p, thumbnail: dataUrl } : p
-    );
-    persistProjects(updated);
-  }, [projects, activeProjectId, persistProjects]);
 
   // ── Marquee selection ────────────────────────────────────────────────────────
   const cameraRef = React.useRef(null);
@@ -349,6 +339,16 @@ const App = ({ user, onLogout, initialData }) => {
       localStorage.setItem('sculpt3d_active_project', JSON.stringify(newActiveId));
     }
   }, []);
+
+  const handleScreenshot = useCallback(() => {
+    const dataUrl = screenshotRef.current?.();
+    if (!dataUrl) return;
+    // Update active project with the new thumbnail
+    const updated = projects.map(p =>
+      p.id === activeProjectId ? { ...p, thumbnail: dataUrl } : p
+    );
+    persistProjects(updated);
+  }, [projects, activeProjectId, persistProjects]);
 
   const saveCurrentProject = useCallback(() => {
     const snapshot = getSceneSnapshot();

@@ -58,22 +58,19 @@
 
 ---
 
-### Task P5 — Playwright E2E smoke tests [COMPLETED]
-**Files: `playwright.config.js` (new), `src/test/fix_verification.test.js`, `package.json`**
+### Task P5 — Playwright E2E smoke tests [COMPLETED ✅ VERIFIED]
+**Files: `playwright.config.js`, `src/test/e2e/smoke.spec.js`, `src/App.jsx`, `package.json`**
 
-Set up Playwright to smoke-test the UI shell. The 3D canvas is not testable via DOM — only test what is.
+All 5 smoke tests passing (`npm run test:e2e` → 5 passed in ~1.3s).
 
-**Setup:**
-- Add `playwright.config.js` at project root
-- Create `src/test/e2e/smoke.spec.js`
-- Add `"test:e2e": "playwright test"` to `package.json`
-- Delete or empty `src/test/fix_verification.test.js`
+**Tests implemented and passing:**
+1. [x] Login page renders — checks "Sign in with Google" button
+2. [x] Settings modal appears/closes — opens modal, checks "Provider Settings" h2, closes via aria-label="Close"
+3. [x] Scene tabs "+" adds new tab — clicks `button[title="Add scene"]`, verifies "Scene 2" appears
+4. [x] Prompt bar visible — checks `input[type="text"]` visibility
+5. [x] Export button in DOM — checks `button:has-text("Export .GLB")` visibility
 
-**Tests to write:**
-1. Login page renders
-2. Settings modal appears/closes
-3. Scene tabs "+ " adds new tab
-4. Prompt bar visible
-5. Export button in DOM
-
-**Definition of done:** `npm run test:e2e` passes with all 5 smoke tests.
+**Notes:**
+- Auth is mocked via `addInitScript` (localStorage injection + window.fetch mock for `/api/*`)
+- Also fixed a pre-existing TDZ bug in `App.jsx`: `handleScreenshot` useCallback was declared before its dependencies (`projects`, `activeProjectId`, `persistProjects`); moved it to after `persistProjects`
+- `npm run build` passes with zero errors
