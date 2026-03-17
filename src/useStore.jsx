@@ -477,12 +477,36 @@ const useStore = create((set, get) => ({
     get().saveHistory();
   },
 
-  setGroup: (groupId) => set((state) => ({
-    objects: state.objects.map(o => o.id === state.selectedObjectId ? {...o, groupId} : o)
-  })),
-  unsetGroup: () => set((state) => ({
-    objects: state.objects.map(o => o.id === state.selectedObjectId ? {...o, groupId: null} : o)
-  })),
+  // Copy/paste support
+  copyObjects: () => {
+    const { selectedObjectIds, objects } = get();
+    if (selectedObjectIds.length === 0) return null;
+    const selected = objects.filter(o => selectedObjectIds.includes(o.id));
+    return JSON.parse(JSON.stringify(selected));
+  },
+
+  pasteObjects: (clipboard) => {
+    if (!clipboard || clipboard.length === 0) return;
+    const { saveHistory, objects, groups } = get();
+    saveHistory();
+
+    const newObjects = clipboard.map(obj => {
+      const nid = Math.random().toString(36).substr(2, 9);
+      const newObj = {
+        ...obj,
+        id: nid,
+        name: obj.name + ' (Copy)',
+        position: [obj.position[0] + 0.5, obj.position[1] + 0.5, obj.position[2] + 0.5]
+      };
+      return newObj;
+    });
+
+    set({
+      objects: [...objects, ...newObjects],
+      selectedObjectIds: newObjects.map(o => o.id),
+      selectedObjectId: newObjects[0].id
+    });
+  },
 
   applyBevel: (objectId, selectedIndices, amount) => set(state => {
     const obj = state.objects.find(o => o.id === objectId);

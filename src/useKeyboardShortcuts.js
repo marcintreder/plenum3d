@@ -1,9 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import useStore from './useStore';
 
 const useKeyboardShortcuts = () => {
   const {
     selectedObjectId,
+    selectedObjectIds, // ADD THIS
     deleteObject,
     setEditMode,
     editMode,
@@ -14,8 +15,13 @@ const useKeyboardShortcuts = () => {
     redo,
     addPrimitive,
     objects,
-    updateObject
+    updateObject,
+    copyObjects, // ADD THIS
+    pasteObjects // ADD THIS
   } = useStore();
+
+  // Add a persistent clipboard ref
+  const clipboardRef = useRef(null);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -26,6 +32,21 @@ const useKeyboardShortcuts = () => {
 
       // --- Meta Shortcuts ---
       if (e.metaKey || e.ctrlKey) {
+        // Copy (Cmd-C)
+        if (key === 'c') {
+          const clipboard = copyObjects();
+          if (clipboard) clipboardRef.current = clipboard;
+          return;
+        }
+
+        // Paste (Cmd-V)
+        if (key === 'v') {
+          if (clipboardRef.current) {
+            pasteObjects(clipboardRef.current);
+          }
+          return;
+        }
+
         // Undo/Redo (Cmd-Z / Cmd-Shift-Z)
         if (key === 'z') {
           e.preventDefault();
@@ -116,7 +137,7 @@ const useKeyboardShortcuts = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedObjectId, deleteObject, setEditMode, editMode, setSelectedJointIndex, setSelectedObjectId, selectAllObjects, undo, redo, objects, updateObject]);
+  }, [selectedObjectId, selectedObjectIds, deleteObject, setEditMode, editMode, setSelectedJointIndex, setSelectedObjectId, selectAllObjects, undo, redo, objects, updateObject, copyObjects, pasteObjects]);
 };
 
 export default useKeyboardShortcuts;
