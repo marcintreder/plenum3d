@@ -1,14 +1,15 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Layers, Eye, EyeOff, Trash2, Crosshair, Move, Scissors, Sliders,
-  Camera, Sparkles, Triangle, ChevronRight, ChevronDown, Users, Link2, Unlink2
+  Camera, Sparkles, Triangle, ChevronRight, ChevronDown, Users, Link2, Unlink2,
+  Image as ImageIcon
 } from 'lucide-react';
 import useStore from './useStore';
 import TexturePanel from './components/TexturePanel';
 import { performCSG } from './utils/CSGProcessor';
 import { detectFaces } from './utils/MeshAnalysis';
 
-const Inspector = () => {
+const Inspector = ({ onScreenshot }) => {
   const {
     objects,
     groups,
@@ -217,6 +218,13 @@ const Inspector = () => {
           <span className="text-[10px] uppercase tracking-widest text-white font-black">Properties</span>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={onScreenshot}
+            className="text-gray-600 hover:text-[#7C3AED] transition-colors"
+            title="Take Project Thumbnail"
+          >
+            <ImageIcon size={12} />
+          </button>
           <button
             onClick={() => setIsOrtho(!isOrtho)}
             className={`p-1.5 rounded transition-all ${isOrtho ? 'text-[#06B6D4]' : 'text-gray-600 hover:text-white'}`}
