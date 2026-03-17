@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { X, Copy, Check, Code } from 'lucide-react';
+import { X, Copy, Check, Code, Scissors } from 'lucide-react';
 import useStore from './useStore';
 import { generateR3FCode } from './CodeGenerator';
 
 const CodeView = ({ isOpen, onClose }) => {
   const objects = useStore((state) => state.objects);
   const [copied, setCopied] = useState(false);
+  const [selectionCopied, setSelectionCopied] = useState(false);
 
   if (!isOpen) return null;
 
@@ -15,6 +16,14 @@ const CodeView = ({ isOpen, onClose }) => {
     navigator.clipboard.writeText(code);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleCopySelection = () => {
+    const selectedText = window.getSelection()?.toString() ?? '';
+    if (!selectedText) return;
+    navigator.clipboard.writeText(selectedText);
+    setSelectionCopied(true);
+    setTimeout(() => setSelectionCopied(false), 2000);
   };
 
   return (
@@ -31,14 +40,22 @@ const CodeView = ({ isOpen, onClose }) => {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <button 
+            <button
+              onClick={handleCopySelection}
+              data-testid="copy-selection-btn"
+              className="flex items-center gap-2 px-4 py-2 bg-[#333] hover:bg-[#444] rounded-xl text-sm transition-all"
+            >
+              {selectionCopied ? <Check size={14} className="text-green-500" /> : <Scissors size={14} />}
+              {selectionCopied ? 'Copied!' : 'Copy Selection'}
+            </button>
+            <button
               onClick={handleCopy}
               className="flex items-center gap-2 px-4 py-2 bg-[#333] hover:bg-[#444] rounded-xl text-sm transition-all"
             >
               {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
               {copied ? 'Copied!' : 'Copy Code'}
             </button>
-            <button 
+            <button
               onClick={onClose}
               className="p-2 hover:bg-[#333] rounded-lg transition-colors"
             >
