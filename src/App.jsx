@@ -645,7 +645,39 @@ const App = ({ user, onLogout, initialData }) => {
               persistProjects(remaining);
             }
           }}
+          renamingProjectId={renamingProjectId}
+          renameProjectValue={renameProjectValue}
+          onRenameChange={setRenameProjectValue}
+          onRenameBlur={() => {
+            const updated = projects.map(p => p.id === renamingProjectId ? { ...p, name: renameProjectValue || p.name } : p);
+            persistProjects(updated);
+            setRenamingProjectId(null);
+          }}
+          onRenameKeyDown={e => {
+            if (e.key === 'Enter') {
+              const updated = projects.map(p => p.id === renamingProjectId ? { ...p, name: renameProjectValue || p.name } : p);
+              persistProjects(updated);
+              setRenamingProjectId(null);
+            } else if (e.key === 'Escape') setRenamingProjectId(null);
+          }}
         />
+
+        <button
+          onClick={() => {
+            const newId = `proj-${Date.now()}`;
+            const newProject = { 
+              id: newId, 
+              name: 'New Project', 
+              scenes: [{ id: 's1', name: 'Scene 1', objects: [], groups: [], history: [[]], historyIndex: 0 }], 
+              activeSceneId: 's1' 
+            };
+            persistProjects([...projects, newProject], newId);
+            loadProject(newProject.scenes, newProject.scenes[0].id);
+          }}
+          className="flex items-center gap-2 px-2 py-1.5 text-[10px] text-[#7C3AED] hover:text-[#A78BFA] transition-colors mt-1"
+        >
+          + New project
+        </button>
 
         <div className="flex flex-col gap-1 mt-4">
           <div className="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-2">Primitives</div>

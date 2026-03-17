@@ -1,6 +1,6 @@
 import React from 'react';
 
-const ProjectThumbnails = ({ projects, activeProjectId, onSelect, onRename, onDelete }) => {
+const ProjectThumbnails = ({ projects, activeProjectId, onSelect, onRename, onDelete, renamingProjectId, renameProjectValue, onRenameChange, onRenameBlur, onRenameKeyDown }) => {
   return (
     <div className="flex flex-col gap-1 mt-2">
       <div className="flex items-center justify-between mb-1 px-2">
@@ -17,8 +17,19 @@ const ProjectThumbnails = ({ projects, activeProjectId, onSelect, onRename, onDe
             }`}
           >
             {proj.thumbnail && <img src={proj.thumbnail} alt="thumb" className="w-8 h-8 rounded object-cover mr-2" />}
-            <span className="truncate flex-1 text-xs font-medium">{proj.name}</span>
-            {projects.length > 1 && (
+            {renamingProjectId === proj.id ? (
+              <input
+                autoFocus
+                value={renameProjectValue}
+                onChange={(e) => onRenameChange(e.target.value)}
+                onBlur={onRenameBlur}
+                onKeyDown={onRenameKeyDown}
+                className="bg-[#333] border border-[#7C3AED]/60 rounded px-1 py-0.5 text-[10px] outline-none text-white w-full"
+              />
+            ) : (
+              <span className="truncate flex-1 text-xs font-medium">{proj.name}</span>
+            )}
+            {projects.length > 1 && !renamingProjectId && (
               <button
                 onClick={e => { e.stopPropagation(); onDelete(proj.id); }}
                 className="opacity-0 group-hover/proj:opacity-100 text-gray-600 hover:text-red-400 ml-1 transition-opacity"
