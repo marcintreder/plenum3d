@@ -881,6 +881,7 @@ const App = ({ user, onLogout, initialData }) => {
 
         <div
           className="flex-1 relative"
+          style={{ touchAction: 'none' }}
           onPointerDown={handleMarqueePointerDown}
           onPointerMove={handleMarqueePointerMove}
           onPointerUp={handleMarqueePointerUp}
@@ -922,7 +923,7 @@ const App = ({ user, onLogout, initialData }) => {
           ))}
 
           <Grid infiniteGrid fadeDistance={50} sectionColor="#333" cellColor="#222" />
-          <OrbitControls makeDefault enabled={orbitEnabled} />
+          <OrbitControls makeDefault enabled={orbitEnabled} enableZoom enablePan enableRotate zoomSpeed={1.2} />
         </Canvas>
         <ViewportControls setView={(view) => {
           const cam = cameraRef.current;
