@@ -43,6 +43,25 @@ const Inspector = ({ onScreenshot }) => {
     setObjectGroup,
   } = useStore();
 
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState('');
+
+  const handleNameClick = () => {
+    if (selectedObject) {
+      setRenameValue(selectedObject.name);
+      setIsRenaming(true);
+    }
+  };
+
+  const handleNameSave = () => {
+    if (selectedObject) {
+      saveHistory();
+      updateObject(selectedObject.id, { name: renameValue });
+    }
+    setIsRenaming(false);
+  };
+
+
   const [isOrtho, setIsOrtho] = useState(false);
   const [deltaValues, setDeltaValues] = useState({ 0: '', 1: '', 2: '' });
   const [bevelAmount, setBevelAmount] = useState(0.2);
@@ -467,13 +486,28 @@ const Inspector = ({ onScreenshot }) => {
                     <Users size={9} /> Select Similar
                   </button>
                 </div>
-                <input
-                  type="text"
-                  value={selectedObject.name}
-                  onChange={(e) => updateObject(selectedObject.id, { name: e.target.value })}
-                  onBlur={() => saveHistory()}
-                  className="w-full bg-[#0F0F0F] border border-[#333] p-2 rounded-lg text-xs outline-none focus:border-[#7C3AED] transition-colors"
-                />
+                {isRenaming ? (
+                  <input
+                    autoFocus
+                    type="text"
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    onBlur={handleNameSave}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleNameSave();
+                      if (e.key === 'Escape') setIsRenaming(false);
+                    }}
+                    className="w-full bg-[#0F0F0F] border border-[#7C3AED] p-2 rounded-lg text-xs outline-none text-white transition-colors"
+                  />
+                ) : (
+                  <div
+                    onClick={handleNameClick}
+                    className="w-full bg-[#0F0F0F] border border-[#333] p-2 rounded-lg text-xs text-white cursor-pointer hover:border-[#555] transition-colors"
+                    title="Click to rename"
+                  >
+                    {selectedObject.name}
+                  </div>
+                )}
               </div>
 
               {/* Group assignment */}
