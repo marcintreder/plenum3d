@@ -1,4 +1,4 @@
-import React, { useRef, useMemo, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useMemo, useEffect, useCallback } from 'react';
 import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { TransformControls } from '@react-three/drei';
@@ -58,25 +58,8 @@ const EditableMesh = ({ object }) => {
     return <meshStandardMaterial {...props} />;
   }, [object.color, object.materialType, object.metalness, object.roughness, isVertexMode, isSelected, isPrimary]);
 
-  // Transform Controls
-  const TransformWrapper = ({ children }) => {
-    if (!isPrimary || editMode !== 'object') return children;
-    return (
-      <TransformControls
-        object={meshRef.current}
-        mode="translate"
-        snap={gridSnap > 0 ? gridSnap : null}
-        onMouseDown={() => setOrbitEnabled(false)}
-        onMouseUp={() => setOrbitEnabled(true)}
-        onObjectChange={(e) => {
-            const o = e.target.object;
-            updateObjectTransform(object.id, [o.position.x, o.position.y, o.position.z], [o.rotation.x, o.rotation.y, o.rotation.z], [o.scale.x, o.scale.y, o.scale.z]);
-        }}
-      >
-        {children}
-      </TransformControls>
-    );
-  };
+  // State-based ref so TransformControls knows when mesh is in scene
+  const [meshObj, setMeshObj] = useState(null);
 
   const handlePointerDown = useCallback((e) => {
     if (isVertexMode) return;
@@ -101,9 +84,9 @@ const EditableMesh = ({ object }) => {
   if (!object.visible) return null;
 
   return (
-    <TransformWrapper>
+    <>
       <mesh
-        ref={meshRef}
+        ref={(el) => { meshRef.current = el; setMeshObj(el); }}
         position={object.position || [0, 0, 0]}
         rotation={object.rotation || [0, 0, 0]}
         scale={object.scale    || [1, 1, 1]}
@@ -119,8 +102,24 @@ const EditableMesh = ({ object }) => {
         )}
         {Material}
       </mesh>
+      {isPrimary && editMode === 'object' && meshObj && (
+        <TransformControls
+          object={meshObj}
+          mode="translate"
+          snap={gridSnap > 0 ? gridSnap : null}
+          onMouseDown={() => setOrbitEnabled(false)}
+          onMouseUp={() => setOrbitEnabled(true)}
+          onObjectChange={(e) => {
+            const o = e.target.object;
+            updateObjectTransform(object.id,
+              [o.position.x, o.position.y, o.position.z],
+              [o.rotation.x, o.rotation.y, o.rotation.z],
+              [o.scale.x, o.scale.y, o.scale.z]);
+          }}
+        />
+      )}
       {isVertexMode && <VertexHandles object={object} />}
-    </TransformWrapper>
+    </>
   );
 };
 

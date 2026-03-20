@@ -6,7 +6,6 @@ import {
   Image as ImageIcon, RefreshCw
 } from 'lucide-react';
 import useStore from './useStore';
-import SyncButton from './components/SyncButton';
 import TexturePanel from './components/TexturePanel';
 import { performCSG } from './utils/CSGProcessor';
 import { detectFaces } from './utils/MeshAnalysis';
@@ -248,7 +247,6 @@ const Inspector = ({ onScreenshot, user }) => {
           <span className="text-[10px] uppercase tracking-widest text-white font-black">Properties</span>
         </div>
         <div className="flex items-center gap-2">
-          <SyncButton user={user} />
           <button
             onClick={onScreenshot}
             className="text-gray-600 hover:text-[#7C3AED] transition-colors"

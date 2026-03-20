@@ -99,7 +99,7 @@ const GroupGizmo = () => {
         <sphereGeometry args={[0.001]} />
         <meshBasicMaterial />
       </mesh>
-      {pivot && (
+      {pivot && pivot.parent && (
         <TransformControls
           object={pivot}
           mode="translate"
