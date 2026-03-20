@@ -10,7 +10,7 @@ import TexturePanel from './components/TexturePanel';
 import { performCSG } from './utils/CSGProcessor';
 import { detectFaces } from './utils/MeshAnalysis';
 
-const Inspector = ({ onScreenshot, user }) => {
+const Inspector = ({ onScreenshot, user, searchFilter = '', onSearchChange }) => {
   const isOrtho = useStore(s => s.isOrthoCamera);
   const toggleOrtho = useStore(s => s.toggleOrthoCamera);
   const {
@@ -235,8 +235,17 @@ const Inspector = ({ onScreenshot, user }) => {
     }
 
     objects.filter(o => !o.groupId).forEach(o => items.push({ type: 'object', obj: o, indented: false }));
+
+    if (searchFilter) {
+      const q = searchFilter.toLowerCase();
+      return items.filter(item =>
+        item.type === 'group'
+          ? item.members.some(o => o.name.toLowerCase().includes(q))
+          : item.obj.name.toLowerCase().includes(q)
+      );
+    }
     return items;
-  }, [objects, groups, collapsedGroups]);
+  }, [objects, groups, collapsedGroups, searchFilter]);
 
   return (
     <div className="w-80 bg-[#1A1A1A] border-l border-[#333] flex flex-col overflow-hidden">
@@ -300,6 +309,15 @@ const Inspector = ({ onScreenshot, user }) => {
               <option value="2">2.0</option>
             </select>
           </div>
+        </div>
+        <div className="px-3 py-2 border-b border-[#333] bg-[#151515]">
+          <input
+            type="text"
+            placeholder="Search layers…"
+            value={searchFilter}
+            onChange={(e) => onSearchChange?.(e.target.value)}
+            className="w-full bg-[#0F0F0F] border border-[#2A2A2A] text-[11px] px-2.5 py-1.5 rounded-lg outline-none focus:border-[#7C3AED] text-white placeholder-gray-600"
+          />
         </div>
         <div className="px-4 py-2 bg-[#1A1A1A] flex items-center justify-between border-b border-[#333]">
           <span className="text-[9px] uppercase tracking-tighter text-gray-500 font-bold">Scene Graph</span>
