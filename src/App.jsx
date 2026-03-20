@@ -154,18 +154,7 @@ const MODEL_LABELS = {
 // Reads isOrthoCamera from store (toggled by Inspector) — placeholder for future camera switch
 const CameraModeSwitcher = () => null;
 
-const OrthoViewSwitcher = () => {
-  const { camera } = useThree();
-  const setView = (view) => {
-    switch (view) {
-      case 'top': camera.position.set(0, 10, 0); camera.lookAt(0, 0, 0); break;
-      case 'front': camera.position.set(0, 0, 10); camera.lookAt(0, 0, 0); break;
-      case 'right': camera.position.set(10, 0, 0); camera.lookAt(0, 0, 0); break;
-      case 'iso': camera.position.set(5, 5, 5); camera.lookAt(0, 0, 0); break;
-    }
-  };
-  return <ViewportControls setView={setView} />;
-};
+// ViewportControls are now rendered outside Canvas (see below) using cameraRef
 
 const App = ({ user, onLogout, initialData }) => {
   const [isModalOpen, setModalOpen] = useState(false);
@@ -924,7 +913,6 @@ const App = ({ user, onLogout, initialData }) => {
           <Exporter />
           <ScreenshotHelper onCapture={screenshotRef} />
           <MarqueeCameraSync cameraRef={cameraRef} />
-          <OrthoViewSwitcher />
           <CameraModeSwitcher />
           <GroupGizmo />
           {objects
@@ -936,6 +924,16 @@ const App = ({ user, onLogout, initialData }) => {
           <Grid infiniteGrid fadeDistance={50} sectionColor="#333" cellColor="#222" />
           <OrbitControls makeDefault enabled={orbitEnabled} />
         </Canvas>
+        <ViewportControls setView={(view) => {
+          const cam = cameraRef.current;
+          if (!cam) return;
+          switch (view) {
+            case 'top':   cam.position.set(0, 10, 0); cam.lookAt(0, 0, 0); break;
+            case 'front': cam.position.set(0, 0, 10); cam.lookAt(0, 0, 0); break;
+            case 'right': cam.position.set(10, 0, 0); cam.lookAt(0, 0, 0); break;
+            case 'iso':   cam.position.set(5, 5, 5);  cam.lookAt(0, 0, 0); break;
+          }
+        }} />
         {marquee && (
           <div
             className="absolute pointer-events-none border border-blue-400/80 bg-blue-400/10"
