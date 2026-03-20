@@ -16,8 +16,9 @@ const useKeyboardShortcuts = () => {
     addPrimitive,
     objects,
     updateObject,
-    copyObjects, // ADD THIS
-    pasteObjects // ADD THIS
+    copyObjects,
+    pasteObjects,
+    duplicateObject
   } = useStore();
 
   // Add a persistent clipboard ref
@@ -66,18 +67,7 @@ const useKeyboardShortcuts = () => {
         if (key === 'd') {
           e.preventDefault();
           if (selectedObjectId) {
-            const obj = objects.find(o => o.id === selectedObjectId);
-            if (obj) {
-              const newObj = JSON.parse(JSON.stringify(obj));
-              newObj.id = Math.random().toString(36).substr(2, 9);
-              newObj.name += " (Copy)";
-              newObj.position[0] += 0.5; // Offset copy
-              useStore.setState((state) => ({ 
-                objects: [...state.objects, newObj],
-                selectedObjectId: newObj.id
-              }));
-              useStore.getState().saveHistory();
-            }
+            duplicateObject(selectedObjectId);
           }
           return;
         }

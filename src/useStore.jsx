@@ -477,6 +477,27 @@ const useStore = create((set, get) => ({
     get().saveHistory();
   },
 
+  duplicateObject: (id) => {
+    const { objects } = get();
+    const original = objects.find(o => o.id === id);
+    if (!original) return;
+    const clone = {
+      ...JSON.parse(JSON.stringify(original)),
+      id: 'obj-' + Date.now() + Math.random(),
+      name: original.name + ' (Copy)',
+      position: [original.position[0] + 0.2, original.position[1] + 0.2, original.position[2]],
+    };
+    set({
+      objects: [...objects, clone],
+      selectedObjectId: clone.id,
+      selectedObjectIds: [clone.id],
+      selectedGroupId: null,
+      selectedJointIndex: null,
+      selectedVertexIndices: [],
+    });
+    get().saveHistory();
+  },
+
   // Copy/paste support
   copyObjects: () => {
     const { selectedObjectIds, objects } = get();
