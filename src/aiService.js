@@ -76,7 +76,14 @@ function userPromptWithImage(prompt) {
 // ── Code executor ─────────────────────────────────────────────────────────────
 
 function stripFences(text) {
-  return (text || '').replace(/^```(?:javascript|js)?\s*/m, '').replace(/```\s*$/m, '').trim();
+  text = (text || '').trim();
+  // Extract content from first fenced code block (``` ... ```)
+  const fenceMatch = text.match(/```(?:javascript|js)?\s*\n([\s\S]*?)```/);
+  if (fenceMatch) return fenceMatch[1].trim();
+  // No fences — find where JS code actually starts and strip any leading prose
+  const codeStart = text.search(/^(?:const|let|var|return|\/\/|\/\*|function|async\s)/m);
+  if (codeStart !== -1) return text.slice(codeStart).trim();
+  return text;
 }
 
 async function executeWithRetry(fn, ...args) {
@@ -95,8 +102,14 @@ async function executeWithRetry(fn, ...args) {
 }
 
 function executeModelCode(code, name) {
-  // eslint-disable-next-line no-new-func
-  const fn = new Function('THREE', code);
+  let fn;
+  try {
+    // eslint-disable-next-line no-new-func
+    fn = new Function('THREE', code);
+  } catch (syntaxErr) {
+    console.error('Generated code (syntax error):\n', code);
+    throw new Error(`Syntax error in generated code: ${syntaxErr.message}`);
+  }
   const descriptors = fn(THREE);
 
   if (!Array.isArray(descriptors) || descriptors.length === 0) {
@@ -160,7 +173,7 @@ async function generateWithAnthropic(prompt, referenceImage, apiKey, log, model)
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST', headers,
-    body: JSON.stringify({ model: m, max_tokens: 4096, system: SYSTEM_PROMPT, messages: [{ role: 'user', content }] }),
+    body: JSON.stringify({ model: m, max_tokens: 8192, system: SYSTEM_PROMPT, messages: [{ role: 'user', content }] }),
   });
   if (!res.ok) throw new Error(`Anthropic error: ${res.statusText}`);
   const data = await res.json();
@@ -187,7 +200,7 @@ async function generateWithOpenAI(prompt, referenceImage, apiKey, log, model) {
     method: 'POST', headers,
     body: JSON.stringify({
       model: m,
-      max_tokens: 4096,
+      max_tokens: 8192,
       messages: [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: userContent }],
     }),
   });
@@ -406,7 +419,7 @@ export const refineObject = async (
       method: 'POST', headers,
       body: JSON.stringify({
         model: anthropicModel || 'claude-sonnet-4-6',
-        max_tokens: 4096,
+        max_tokens: 8192,
         system: REFINE_SYSTEM_PROMPT,
         messages: [{ role: 'user', content: [{ type: 'text', text: compositePrompt }] }],
       }),
@@ -424,7 +437,7 @@ export const refineObject = async (
       method: 'POST', headers,
       body: JSON.stringify({
         model: openAIModel || 'gpt-4o-mini',
-        max_tokens: 4096,
+        max_tokens: 8192,
         messages: [
           { role: 'system', content: REFINE_SYSTEM_PROMPT },
           { role: 'user', content: compositePrompt },
