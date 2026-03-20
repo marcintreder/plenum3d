@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import useStore from '../../src/useStore';
+import useStore from '../../useStore';
 
 describe('Background color', () => {
     it('updates background color in scene state', () => {

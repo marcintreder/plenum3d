@@ -1,15 +1,18 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { Canvas } from "@react-three/fiber";
 import {
   Layers, Eye, EyeOff, Trash2, Crosshair, Move, Scissors, Sliders,
   Camera, Sparkles, Triangle, ChevronRight, ChevronDown, Users, Link2, Unlink2,
-  Image as ImageIcon
+  Image as ImageIcon, RefreshCw
 } from 'lucide-react';
 import useStore from './useStore';
+import SyncButton from './components/SyncButton';
 import TexturePanel from './components/TexturePanel';
 import { performCSG } from './utils/CSGProcessor';
 import { detectFaces } from './utils/MeshAnalysis';
 
-const Inspector = ({ onScreenshot }) => {
+const Inspector = ({ onScreenshot, user }) => {
+  const isOrtho = useStore(s => s.isOrthoCamera);
+  const toggleOrtho = useStore(s => s.toggleOrthoCamera);
   const {
     objects,
     groups,
@@ -62,7 +65,14 @@ const Inspector = ({ onScreenshot }) => {
   };
 
 
-  const [isOrtho, setIsOrtho] = useState(false);
+  const [gridSnap, setGridSnap] = useState(0); // 0 = no snap
+  const updateGridSnap = useStore(s => s.updateGridSnap);
+
+  const handleGridSnapChange = (val) => {
+    const s = parseFloat(val);
+    setGridSnap(s);
+    updateGridSnap(s);
+  };
   const [deltaValues, setDeltaValues] = useState({ 0: '', 1: '', 2: '' });
   const [bevelAmount, setBevelAmount] = useState(0.2);
   const [smoothIterations, setSmoothIterations] = useState(2);
@@ -237,6 +247,7 @@ const Inspector = ({ onScreenshot }) => {
           <span className="text-[10px] uppercase tracking-widest text-white font-black">Properties</span>
         </div>
         <div className="flex items-center gap-2">
+          <SyncButton user={user} />
           <button
             onClick={onScreenshot}
             className="text-gray-600 hover:text-[#7C3AED] transition-colors"
@@ -245,7 +256,7 @@ const Inspector = ({ onScreenshot }) => {
             <ImageIcon size={12} />
           </button>
           <button
-            onClick={() => setIsOrtho(!isOrtho)}
+            onClick={() => toggleOrtho()}
             className={`p-1.5 rounded transition-all ${isOrtho ? 'text-[#06B6D4]' : 'text-gray-600 hover:text-white'}`}
             title="Toggle Orthographic Camera"
           >
@@ -274,6 +285,23 @@ const Inspector = ({ onScreenshot }) => {
 
       {/* Scene Graph with groups */}
       <div className="flex-[0.45] flex flex-col border-b border-[#333] min-h-[160px] max-h-[320px]">
+        {/* Snapping Controls */}
+        <div className="px-4 py-2 bg-[#1A1A1A] border-b border-[#333]">
+          <div className="flex items-center justify-between">
+            <label className="text-[9px] uppercase tracking-tighter text-gray-500 font-bold">Grid Snap</label>
+            <select
+              value={gridSnap}
+              onChange={(e) => handleGridSnapChange(e.target.value)}
+              className="bg-[#0F0F0F] border border-[#333] rounded px-2 py-0.5 text-[10px] outline-none text-gray-400"
+            >
+              <option value="0">Off</option>
+              <option value="0.25">0.25</option>
+              <option value="0.5">0.5</option>
+              <option value="1">1.0</option>
+              <option value="2">2.0</option>
+            </select>
+          </div>
+        </div>
         <div className="px-4 py-2 bg-[#1A1A1A] flex items-center justify-between border-b border-[#333]">
           <span className="text-[9px] uppercase tracking-tighter text-gray-500 font-bold">Scene Graph</span>
           <span className="text-[9px] text-gray-700 font-mono" title="⌘/Ctrl+click to multi-select · right-click for options">{objects.length} obj · {groups.length} grp</span>

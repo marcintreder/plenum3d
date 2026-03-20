@@ -4,12 +4,14 @@ import useStore from './useStore';
 const useKeyboardShortcuts = () => {
   const {
     selectedObjectId,
-    selectedObjectIds, // ADD THIS
+    selectedObjectIds,
+    selectedGroupId, // Add this
     deleteObject,
     setEditMode,
     editMode,
     setSelectedJointIndex,
     setSelectedObjectId,
+    setSelectedGroupId, // Add this
     selectAllObjects,
     undo,
     redo,
@@ -18,7 +20,9 @@ const useKeyboardShortcuts = () => {
     updateObject,
     copyObjects,
     pasteObjects,
-    duplicateObject
+    duplicateObject,
+    createGroup, // Add this
+    ungroup, // Add this
   } = useStore();
 
   // Add a persistent clipboard ref
@@ -33,6 +37,17 @@ const useKeyboardShortcuts = () => {
 
       // --- Meta Shortcuts ---
       if (e.metaKey || e.ctrlKey) {
+        // Group (Cmd-G)
+        if (key === 'g') {
+          e.preventDefault();
+          if (e.shiftKey) {
+            if (selectedGroupId) ungroup(selectedGroupId);
+          } else {
+            if (selectedObjectIds.length > 0) createGroup(selectedObjectIds);
+          }
+          return;
+        }
+
         // Copy (Cmd-C)
         if (key === 'c') {
           const clipboard = copyObjects();
@@ -92,6 +107,7 @@ const useKeyboardShortcuts = () => {
           setSelectedJointIndex(null);
         } else {
           setSelectedObjectId(null);
+          setSelectedGroupId(null); // Add this
           setSelectedJointIndex(null);
         }
       }

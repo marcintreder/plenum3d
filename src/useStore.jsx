@@ -32,6 +32,7 @@ const saveCurrentToScene = (state) =>
 const CLEAR_SELECTION = {
   selectedObjectId: null,
   selectedObjectIds: [],
+  selectedGroupIds: [],
   selectedGroupId: null,
   selectedJointIndex: null,
   selectedVertexIndices: [],
@@ -49,22 +50,28 @@ const useStore = create((set, get) => ({
   historyIndex: 0,
   selectedObjectId: null,
   selectedObjectIds: [],
+  selectedGroupIds: [],
   selectedGroupId: null,
   selectedJointIndex: null,
   selectedVertexIndices: [],
   editMode: 'object',
+  gridSnap: 0,
+  isOrthoCamera: false,
   orbitEnabled: true,
   isGenerating: false,
   exportRequested: false,
   meshPointerActive: false,
 
   setMeshPointerActive: (v) => set({ meshPointerActive: v }),
+  updateGridSnap: (v) => set({ gridSnap: v }),
+  toggleOrthoCamera: () => set(s => ({ isOrthoCamera: !s.isOrthoCamera })),
 
   selectObjectsInMarquee: (ids) => {
     if (!ids.length) return;
     set({
       selectedObjectIds: ids,
       selectedObjectId: ids[ids.length - 1],
+      selectedGroupIds: [],
       selectedGroupId: null,
       selectedJointIndex: null,
       selectedVertexIndices: [],
@@ -93,10 +100,60 @@ const useStore = create((set, get) => ({
     return id;
   },
 
+  createGroup: (objectIds) => {
+    const id = Math.random().toString(36).substr(2, 9);
+    set(state => {
+      const newGroups = [...state.groups, { id, name: `Group ${state.groups.length + 1}` }];
+      const newObjects = state.objects.map(o => objectIds.includes(o.id) ? { ...o, groupId: id } : o);
+      // Ensure objects are updated in the store state immediately
+      return { groups: newGroups, objects: newObjects, selectedGroupId: id, selectedGroupIds: [id], selectedObjectIds: objectIds };
+    });
+  },
+
+  ungroup: (groupId) => {
+    set(state => {
+      const newGroups = state.groups.filter(g => g.id !== groupId);
+      const newObjects = state.objects.map(o => o.groupId === groupId ? { ...o, groupId: null } : o);
+      return { groups: newGroups, objects: newObjects, selectedGroupId: null, selectedGroupIds: state.selectedGroupIds.filter(id => id !== groupId) };
+    });
+  },
+
+  toggleSelect: (id, isGroup = false) => {
+    set(state => {
+      console.log('toggleSelect triggered', id, isGroup);
+      if (isGroup) {
+        const isSelected = state.selectedGroupIds.includes(id);
+        const nextGroupIds = isSelected 
+          ? state.selectedGroupIds.filter(gid => gid !== id) 
+          : [...state.selectedGroupIds, id];
+        const nextObjectIds = state.objects
+            .filter(o => nextGroupIds.includes(o.groupId))
+            .map(o => o.id);
+        
+        console.log('Group Update:', nextGroupIds, nextObjectIds);
+        return { 
+          selectedGroupIds: nextGroupIds, 
+          selectedObjectIds: nextObjectIds, 
+          selectedGroupId: nextGroupIds.length ? nextGroupIds[nextGroupIds.length - 1] : null 
+        };
+      } else {
+        const isSelected = state.selectedObjectIds.includes(id);
+        const nextObjectIds = isSelected 
+          ? state.selectedObjectIds.filter(oid => oid !== id) 
+          : [...state.selectedObjectIds, id];
+        return { 
+          selectedObjectIds: nextObjectIds, 
+          selectedObjectId: nextObjectIds.length ? nextObjectIds[nextObjectIds.length - 1] : null 
+        };
+      }
+    });
+  },
+
   removeGroup: (groupId) => set(state => ({
     groups: state.groups.filter(g => g.id !== groupId),
     objects: state.objects.map(o => o.groupId === groupId ? { ...o, groupId: null } : o),
     selectedGroupId: state.selectedGroupId === groupId ? null : state.selectedGroupId,
+    selectedGroupIds: state.selectedGroupIds.filter(id => id !== groupId),
   })),
 
   setObjectGroup: (objectId, groupId) => set(state => ({
@@ -104,10 +161,11 @@ const useStore = create((set, get) => ({
   })),
 
   setSelectedGroupId: (groupId) => set(state => {
-    if (!groupId) return { selectedGroupId: null };
+    if (!groupId) return { selectedGroupId: null, selectedGroupIds: [] };
     const groupObjectIds = state.objects.filter(o => o.groupId === groupId).map(o => o.id);
     return {
       selectedGroupId: groupId,
+      selectedGroupIds: [groupId],
       selectedObjectIds: groupObjectIds,
       selectedObjectId: groupObjectIds[0] ?? null,
       selectedVertexIndices: [],
@@ -578,7 +636,8 @@ const useStore = create((set, get) => ({
 
   isShortcutModalOpen: false,
   toggleShortcutModal: () => set(state => ({ isShortcutModalOpen: !state.isShortcutModalOpen })),
-
+  
+  setBackgroundColor: (color) => set(state => ({
     scenes: state.scenes.map(s => s.id === state.activeSceneId ? { ...s, backgroundColor: color } : s)
   })),
 

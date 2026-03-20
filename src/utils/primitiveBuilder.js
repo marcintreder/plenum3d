@@ -131,21 +131,22 @@ export function buildPrimitiveMesh(type, size = [1, 1, 1]) {
   } else if (type === 'capsule') {
     // Cylinder body + hemispherical caps
     const radius = w / 2;
-    const bodyH = Math.max(0, h - w);
+    const bodyH = Math.max(0, h - 2 * radius);
     const capSegs = 8, radSegs = 20;
-    // Bottom cap (upside-down hemisphere)
-    for (let lat = capSegs; lat >= 0; lat--) {
-      const theta = (lat / capSegs) * (Math.PI / 2);
+
+    // Bottom hemisphere
+    for (let lat = 0; lat <= capSegs; lat++) {
+      const theta = Math.PI / 2 + (lat / capSegs) * (Math.PI / 2);
       for (let lon = 0; lon <= radSegs; lon++) {
         const phi = (lon / radSegs) * Math.PI * 2;
         vertices.push([
           radius * Math.sin(theta) * Math.cos(phi),
-          -bodyH / 2 - radius * Math.cos(theta),
+          -bodyH / 2 + radius * Math.cos(theta),
           radius * Math.sin(theta) * Math.sin(phi),
         ]);
       }
     }
-    // Top cap
+    // Top hemisphere
     for (let lat = 0; lat <= capSegs; lat++) {
       const theta = (lat / capSegs) * (Math.PI / 2);
       for (let lon = 0; lon <= radSegs; lon++) {
@@ -158,8 +159,7 @@ export function buildPrimitiveMesh(type, size = [1, 1, 1]) {
       }
     }
     const cols = radSegs + 1;
-    const rows = (capSegs + 1) * 2;
-    for (let r = 0; r < rows - 1; r++) {
+    for (let r = 0; r < (capSegs + 1) * 2 - 1; r++) {
       for (let c = 0; c < radSegs; c++) {
         const a = r * cols + c;
         const b = a + cols;

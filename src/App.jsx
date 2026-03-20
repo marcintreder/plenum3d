@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo } from "react";
+import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { Canvas, useThree, useFrame } from "@react-three/fiber";
 import { OrbitControls, Grid, TransformControls } from "@react-three/drei";
 import {
@@ -7,8 +7,10 @@ import {
   Undo2, Redo2, Bot, Sparkles, Paperclip, Terminal, Sun,
   Disc, Minus, Mountain, Pill, MessageSquare, Cloud, CloudOff, Loader
 } from "lucide-react";
+import { ViewportControls } from "./components/ViewportControls";
 import ConsolePanel from "./components/ConsolePanel";
 import ProjectThumbnails from "./components/ProjectThumbnails";
+import ShortcutModal from './ShortcutModal';
 
 import EditableMesh from "./EditableMesh";
 import Inspector from "./Inspector";
@@ -22,6 +24,13 @@ import { generate3DModel } from "./aiService";
 import { executeAgentCommand, resolveTargets } from "./agentService";
 import { saveSettings, saveProjects } from "./apiClient";
 import { getObjectIdsInMarquee } from "./utils/marqueeIntersection";
+
+// Syncs camera position with marquee events
+const MarqueeCameraSync = ({ cameraRef }) => {
+  const { camera } = useThree();
+  useEffect(() => { cameraRef.current = camera; }, [camera, cameraRef]);
+  return null;
+};
 
 // Lives inside <Canvas> — exposes a screenshot function via callback ref
 const ScreenshotHelper = ({ onCapture }) => {
@@ -142,11 +151,20 @@ const MODEL_LABELS = {
   'gemini-2.5-pro':          'Pro 2.5',
 };
 
-// Lives inside <Canvas> — syncs the Three.js camera to an external ref
-const MarqueeCameraSync = ({ cameraRef }) => {
+// Reads isOrthoCamera from store (toggled by Inspector) — placeholder for future camera switch
+const CameraModeSwitcher = () => null;
+
+const OrthoViewSwitcher = () => {
   const { camera } = useThree();
-  useEffect(() => { cameraRef.current = camera; }, [camera, cameraRef]);
-  return null;
+  const setView = (view) => {
+    switch (view) {
+      case 'top': camera.position.set(0, 10, 0); camera.lookAt(0, 0, 0); break;
+      case 'front': camera.position.set(0, 0, 10); camera.lookAt(0, 0, 0); break;
+      case 'right': camera.position.set(10, 0, 0); camera.lookAt(0, 0, 0); break;
+      case 'iso': camera.position.set(5, 5, 5); camera.lookAt(0, 0, 0); break;
+    }
+  };
+  return <ViewportControls setView={setView} />;
 };
 
 const App = ({ user, onLogout, initialData }) => {
@@ -853,8 +871,6 @@ const App = ({ user, onLogout, initialData }) => {
           )}
 
           {/* Background color picker */}
-import ShortcutModal from './ShortcutModal';
-...
           <div className="flex items-center gap-2 ml-2 pl-2 border-l border-[#222]">
             <label className="text-[8px] text-gray-500 uppercase font-bold">Bg</label>
             <input 
@@ -908,6 +924,8 @@ import ShortcutModal from './ShortcutModal';
           <Exporter />
           <ScreenshotHelper onCapture={screenshotRef} />
           <MarqueeCameraSync cameraRef={cameraRef} />
+          <OrthoViewSwitcher />
+          <CameraModeSwitcher />
           <GroupGizmo />
           {objects
             .filter(o => o.name.toLowerCase().includes(searchFilter.toLowerCase()))
@@ -1104,7 +1122,7 @@ import ShortcutModal from './ShortcutModal';
       </div>
 
       {/* Right Sidebar: Inspector */}
-      <Inspector onScreenshot={handleScreenshot} />
+      <Inspector onScreenshot={handleScreenshot} user={user} />
 
       {/* Overlays */}
       <CodeView isOpen={isCodeViewOpen} onClose={() => setCodeViewOpen(false)} />

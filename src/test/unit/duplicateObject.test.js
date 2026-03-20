@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import useStore from '../../src/useStore';
+import useStore from '../../useStore';
 
 describe('Object duplication', () => {
     it('duplicates an object and offsets it', () => {

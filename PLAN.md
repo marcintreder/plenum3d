@@ -41,15 +41,95 @@
 - Neon DB persistence (settings + projects saved per user)
 - LandingPage (marketing page shown to logged-out users)
 
+### Task F6 — Layer and Group operations
+**Files: `src/App.jsx`, `src/useStore.jsx`, `src/useKeyboardShortcuts.js`**
+
+Implement layer/group interaction model inspired by Figma.
+1. **Multiselect**: Hold `Cmd` (or `Ctrl`) while clicking items in the sidebar or viewport to toggle selection state.
+2. **Context Menu**: Add a right-click context menu on selected sidebar items containing "Group" and "Ungroup".
+3. **Shortcuts**: Wire `Cmd+G` to group all currently selected items (creating a new group node in the store) and `Cmd+Shift+G` to dissolve the selected group.
+
+**Definition of done:**
+- Multiselect via `Cmd+Click` implemented and reflected in `useStore` state.
+- Right-click context menu implemented for items in the sidebar.
+- "Group" action creates a logical grouping in the store; "Ungroup" removes the grouping.
+- `Cmd+G` / `Cmd+Shift+G` shortcuts functional.
+- `npm test` verification.
+- One git commit: "task F6: layer and group operations"
+
 ---
 
-## ❌ REMAINING TASKS
+### Task F7 — Fix rescaling of skeleton models
+**Files: `src/useStore.jsx`, `src/utils/meshAnalysis.js`, `src/EditableMesh.jsx`**
 
-> Only work on tasks listed here. Send the task list to the user for approval before starting.
+The F1 model has a hierarchical skeleton/mesh structure. Currently, rescaling logic only updates the transform of the parent or internal data, leaving the visible mesh at its original scale.
+1. Traverse the model hierarchy in `EditableMesh.jsx` to locate the correct target `Object3D` (visible mesh) before applying scaling.
+2. Ensure scaling operations in `useStore.jsx` (and agent commands) correctly target the visible geometry, not just the parent/hidden nodes.
+
+**Definition of done:**
+- Visible geometry scales correctly when rescaling F1 wheels (or similar complex models).
+- Scaling operation targets the actual mesh geometry/visible node rather than metadata nodes.
+- One git commit: "task F7: fix rescaling of skeleton models"
 
 ---
 
-### Task F1 — Object search / filter in sidebar
+### Task F8 — Integrated R3F Code Editor
+**Files: `src/CodeView.jsx`, `src/App.jsx`**
+
+Embed a code editor into the CodeView panel to enable live model editing.
+1. Replace current static display with an editable `react-simple-code-editor` instance (with syntax highlighting via `prismjs`).
+2. Implement auto-update: changes in the editor should parse the code and update the model state in real-time (with a small debounce).
+3. Ensure errors (parsing/compilation) are handled gracefully (show error in UI, do not crash store).
+
+**Definition of done:**
+- Code editor is embedded in the CodeView panel.
+- Edits in the editor trigger re-parsing and model updates.
+- Invalid code shows a clear error indicator; does not apply broken state.
+- One git commit: "task F8: integrated R3F code editor"
+
+---
+
+### Task F9 — Fix Capsule shape primitive
+**Files: `src/utils/primitiveBuilder.js`**
+
+The capsule primitive builder currently creates a sphere instead of a capsule.
+1. Update `primitiveBuilder.js` to use `THREE.CapsuleGeometry` (instead of `SphereGeometry`) with appropriate height and radius parameters.
+2. Ensure it respects the same positioning and material properties as other primitives.
+
+**Definition of done:**
+- Capsule renders as a Capsule (pill shape).
+- One git commit: "task F9: fix Capsule primitive shape"
+
+---
+
+### Task F10 — User data sync
+**Files: `api/projects.js`, `src/apiClient.js`, `src/App.jsx`**
+
+Address data loss by robustly syncing project data.
+1. Verify `apiClient.js` fetch/POST logic is atomic and handle potential concurrency issues.
+2. On `App` mount (for `marcintreder@gmail.com`), perform a full sync of local versus DB-stored projects.
+3. Add a explicit "Sync" button in the Settings panel for manual force-sync.
+
+**Definition of done:**
+- Projects for `marcintreder@gmail.com` are reliably synced on startup.
+- Conflicts between local and remote are handled (favor remote/DB for serverless consistency).
+- One git commit: "task F10: user data sync"
+
+---
+
+### Task F11 — Advanced 3D Space Operations
+**Files: `src/App.jsx`, `src/EditableMesh.jsx`, `src/utils/snap.js`**
+
+Add professional-grade 3D editing capabilities.
+1. **Snapping**: Implement grid snapping (configurable) for movement and rotation.
+2. **Gizmo-based manipulation**: Integrate a sophisticated 3D transformation gizmo (e.g., `THREE.TransformControls`) that allows visual manipulation of selected items.
+3. **Camera Views**: Add orthographic preset buttons (Top, Front, Right, Isometric).
+
+**Definition of done:**
+- Professional 3D manipulation tools implemented (Transform Gizmo + Snapping).
+- Orthographic camera presets implemented.
+- One git commit: "task F11: advanced 3D space operations"
+
 **Files: `src/App.jsx`**
 
 The sidebar shows all objects in the scene. When there are many objects, it's hard to find one by name. Add a small search input above the object list that filters the displayed list in real time by object name (case-insensitive substring match). Filtering does not change selection or scene state — it only affects what is visible in the sidebar list. Clearing the input restores the full list.
