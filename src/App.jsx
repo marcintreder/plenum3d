@@ -853,6 +853,8 @@ const App = ({ user, onLogout, initialData }) => {
           )}
 
           {/* Background color picker */}
+import ShortcutModal from './ShortcutModal';
+...
           <div className="flex items-center gap-2 ml-2 pl-2 border-l border-[#222]">
             <label className="text-[8px] text-gray-500 uppercase font-bold">Bg</label>
             <input 
@@ -861,8 +863,16 @@ const App = ({ user, onLogout, initialData }) => {
               onChange={(e) => useStore.getState().setBackgroundColor(e.target.value)}
               className="w-5 h-5 bg-transparent border-none cursor-pointer"
             />
+            <button 
+              onClick={useStore.getState().toggleShortcutModal}
+              className="ml-2 text-[8px] px-2 py-1 bg-[#222] hover:bg-[#333] rounded"
+            >
+              ?
+            </button>
           </div>
         </div>
+        <ShortcutModal />
+
 
         <div
           className="flex-1 relative"
