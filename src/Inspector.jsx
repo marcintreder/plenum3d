@@ -1,3 +1,4 @@
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Canvas } from "@react-three/fiber";
 import {
   Layers, Eye, EyeOff, Trash2, Crosshair, Move, Scissors, Sliders,
