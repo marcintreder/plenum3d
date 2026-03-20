@@ -851,6 +851,17 @@ const App = ({ user, onLogout, initialData }) => {
               </button>
             </div>
           )}
+
+          {/* Background color picker */}
+          <div className="flex items-center gap-2 ml-2 pl-2 border-l border-[#222]">
+            <label className="text-[8px] text-gray-500 uppercase font-bold">Bg</label>
+            <input 
+              type="color" 
+              value={scenes.find(s => s.id === activeSceneId)?.backgroundColor || '#0F0F0F'}
+              onChange={(e) => useStore.getState().setBackgroundColor(e.target.value)}
+              className="w-5 h-5 bg-transparent border-none cursor-pointer"
+            />
+          </div>
         </div>
 
         <div
@@ -871,7 +882,7 @@ const App = ({ user, onLogout, initialData }) => {
           gl={{ preserveDrawingBuffer: true, antialias: true }}
           shadows
         >
-          <color attach="background" args={["#0F0F0F"]} />
+          <color attach="background" args={[scenes.find(s => s.id === activeSceneId)?.backgroundColor || "#0F0F0F"]} />
           <ambientLight intensity={light.ambientInt} />
           <directionalLight
             position={[

@@ -578,6 +578,10 @@ const useStore = create((set, get) => ({
 
   // ── Scenes ──────────────────────────────────────────────────────────────────
 
+  setBackgroundColor: (color) => set(state => ({
+    scenes: state.scenes.map(s => s.id === state.activeSceneId ? { ...s, backgroundColor: color } : s)
+  })),
+
   switchScene: (id) => {
     const state = get();
     if (id === state.activeSceneId) return;
