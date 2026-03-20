@@ -34,9 +34,12 @@ export async function getData(userId, key) {
 
 export async function setData(userId, key, value) {
   const sql = getDb();
+  // ::jsonb cast is required — parameterized queries pass the string as `text`
+  // and PostgreSQL will not coerce text→jsonb without an explicit cast.
+  const jsonValue = JSON.stringify(value);
   await sql`
     INSERT INTO user_data (user_id, key, value, updated_at)
-    VALUES (${userId}, ${key}, ${JSON.stringify(value)}, NOW())
+    VALUES (${userId}, ${key}, ${jsonValue}::jsonb, NOW())
     ON CONFLICT (user_id, key)
     DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
   `;

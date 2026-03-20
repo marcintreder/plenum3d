@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useGoogleLogin } from "@react-oauth/google";
 import App from "./App.jsx";
-import LoginPage from "./LoginPage.jsx";
+import LandingPage from "./LandingPage.jsx";
 import { fetchSettings, fetchProjects } from "./apiClient.js";
 
 export const TOKEN_LIFETIME_MS = 3600 * 1000; // Google access tokens last 1 hour
@@ -25,6 +25,13 @@ const AuthProvider = () => {
     localStorage.setItem("plenum3d_user", JSON.stringify(userInfo));
     setUser(userInfo);
   };
+
+  const triggerGoogleLogin = useGoogleLogin({
+    onSuccess: (tokenResponse) => {
+      handleLogin({ credential: tokenResponse.access_token });
+    },
+    onError: (error) => console.error("Login failed:", error),
+  });
 
   // Silent token refresh — fires with prompt:'none' so no popup appears
   const triggerSilentRefresh = useGoogleLogin({
@@ -71,7 +78,7 @@ const AuthProvider = () => {
   }, [user?.credential]);
 
   if (!user) {
-    return <LoginPage onLogin={handleLogin} />;
+    return <LandingPage onLogin={triggerGoogleLogin} />;
   }
 
   if (loading || !initialData) {
