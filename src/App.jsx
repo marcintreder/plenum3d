@@ -174,6 +174,7 @@ const App = ({ user, onLogout, initialData }) => {
   const [renameValue, setRenameValue] = useState('');
   const [renamingProjectId, setRenamingProjectId] = useState(null);
   const [renameProjectValue, setRenameProjectValue] = useState('');
+  const [searchFilter, setSearchFilter] = useState('');
 
   const screenshotRef = React.useRef(null);
 
@@ -622,6 +623,15 @@ const App = ({ user, onLogout, initialData }) => {
 
         <div className="flex flex-col gap-1">
           <div className="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-2">Editor</div>
+          <div className="mb-2">
+            <input 
+              type="text" 
+              placeholder="Search objects..." 
+              value={searchFilter}
+              onChange={(e) => setSearchFilter(e.target.value)}
+              className="w-full bg-[#0F0F0F] border border-[#333] text-sm p-2 rounded-lg outline-none focus:border-[#7C3AED] text-white"
+            />
+          </div>
           <button onClick={() => setModalOpen(true)} className="flex items-center gap-3 p-2 hover:bg-[#333] rounded-lg text-sm text-gray-400 hover:text-white transition-all">
              <Settings size={16} /> Settings
           </button>
@@ -878,7 +888,9 @@ const App = ({ user, onLogout, initialData }) => {
           <ScreenshotHelper onCapture={screenshotRef} />
           <MarqueeCameraSync cameraRef={cameraRef} />
           <GroupGizmo />
-          {objects.map(obj => (
+          {objects
+            .filter(o => o.name.toLowerCase().includes(searchFilter.toLowerCase()))
+            .map(obj => (
             <EditableMesh key={obj.id} object={obj} />
           ))}
 
