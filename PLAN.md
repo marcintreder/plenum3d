@@ -1,6 +1,11 @@
 # Plenum3D — Development Plan
 
-> **For Openclaw factory agents:** This is the active project plan. Read this file first. Only work on tasks listed under REMAINING TASKS. Do NOT invent new tasks or "improve" things not listed. A task is DONE when: (1) code is written, (2) `npm test` exits 0 with zero skips, (3) a git commit exists with the task number.
+> **For Openclaw factory agents:** This is the active project plan. Read this file first.
+> - Work directory: `/Users/samwise/factory-projects/sculpt3d`
+> - Execute ALL tasks not marked ✅ COMPLETED, in order, without stopping between tasks.
+> - Do NOT invent new tasks. Do NOT "improve" things not listed.
+> - A task is DONE when: (1) code is written and correct, (2) `npm test` exits 0 with zero skips, (3) git commit exists with the task ID.
+> - After ALL tasks complete: run factoryFinalQA, then send ONE Telegram with results, wait for 'deploy'.
 
 ---
 
