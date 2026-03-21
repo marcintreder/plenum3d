@@ -17,6 +17,9 @@ vi.mock("../../App.jsx", () => ({ default: () => <div data-testid="app" /> }));
 vi.mock("../../LoginPage.jsx", () => ({
   default: () => <div data-testid="login" />,
 }));
+vi.mock("../../LandingPage.jsx", () => ({
+  default: () => <div data-testid="landing" />,
+}));
 vi.mock("../../apiClient.js", () => ({
   fetchSettings: vi.fn(() => Promise.resolve({})),
   fetchProjects: vi.fn(() => Promise.resolve({ projects: [] })),
