@@ -353,3 +353,88 @@ Add an `extract_component` tool to `AGENT_TOOLS` with `{ group_id: string, compo
 - `componentCode` is stored on the group object in the store
 - `npm test` exits 0 with zero skips, including a unit test that verifies the generated code contains all object IDs in the group and uses the correct component name
 - One git commit: "task D3: extract group to reusable component"
+
+---
+
+## 🚀 SPRINT: REQUESTED 2026-03-21
+
+> These tasks were requested by the user but NOT executed by the previous factory run. They must be completed in full with the proper pipeline.
+
+### Task L1 — Modern world-class landing page
+**Files: `src/LandingPage.jsx`, `src/components/LandingPage/` (new directory for sub-components)**
+
+Redesign the landing page from scratch to be world-class, inspiring, and conversion-optimised. Use Stitch MCP to generate the full design first (factoryStitch must run before factoryDeveloper on this task).
+
+Key requirements:
+- Hero section: animated 3D canvas preview (use a read-only R3F Canvas showing a rotating sample model), headline, subheadline, CTA button
+- Features grid: 4–6 feature cards with icons, short descriptions, micro-animations on hover
+- Social proof: "Built with AI" badge, tech stack logos (React, Three.js, Claude)
+- Footer: tagline, GitHub link, sign-in CTA
+- Fully responsive: mobile-first, works on 375px–1440px
+- Dark theme consistent with Plenum3D design system (#0F0F0F bg, #7C3AED accent)
+- Performance: no layout shift, LCP < 2.5s
+
+**Definition of done:**
+- `src/LandingPage.jsx` renders without errors
+- 3D preview canvas visible in hero with a rotating object
+- All sections render on mobile and desktop (screenshot evidence)
+- `npm test` exits 0 with zero skips, including a unit test that renders LandingPage and asserts hero, features, and CTA sections are present
+- One git commit: "task L1: world-class landing page redesign"
+
+---
+
+### Task L2 — Layer operations: multi-select groups (Cmd+click)
+**Files: `src/Inspector.jsx`, `src/useStore.jsx`**
+
+Currently Cmd+click only multi-selects individual objects. Extend to support selecting multiple GROUPS in the layers panel. When multiple groups are selected: a "Merge Groups" option appears in the context menu to combine them into a single group.
+
+**Definition of done:**
+- Cmd+clicking group rows in Inspector adds them to `selectedGroupIds` (plural) in store
+- Multi-selected groups highlighted with cyan border in layers panel
+- Context menu shows "Merge Groups" when 2+ groups selected
+- "Merge Groups" creates one new group containing all member objects, removes old groups
+- `npm test` exits 0 including a test for the merge logic
+- One git commit: "task L2: multi-select and merge groups"
+
+---
+
+### Task L3 — Nested groups (groups inside groups)
+**Files: `src/useStore.jsx`, `src/Inspector.jsx`, `src/EditableMesh.jsx`**
+
+Implement hierarchical scene graph. A group can contain other groups (depth limit: 4 levels to prevent infinite nesting). The layers panel renders nested groups as collapsible tree nodes with indent levels. TransformControls on a parent group transforms all children recursively.
+
+**Definition of done:**
+- `groups` store supports `parentGroupId` field
+- Inspector renders nested groups with visual indent per level (12px per level)
+- Dragging an object or group onto another group in the layers panel re-parents it
+- Cmd+G on a mixed selection of objects + groups creates a group containing all of them (wrapping existing groups)
+- `npm test` exits 0 including tests for nesting logic and max-depth enforcement
+- One git commit: "task L3: nested groups"
+
+---
+
+### Task L4 — AI agent editing of selected shapes
+**Files: `src/agentService.js`, `src/App.jsx`, `src/aiService.js`**
+
+When one or more objects are selected, the AI prompt bar shows "Editing N selected objects". The agent receives the full geometry of selected objects as context and can: modify their properties, add new objects relative to them, and replace geometry. Uses `refineObject` from aiService.js but extended to handle multi-object context.
+
+**Definition of done:**
+- When objects selected: prompt bar label changes to "Editing [N] selected" and placeholder text changes to "Describe changes to selected shapes…"
+- Agent receives serialised bounding box + color + name of all selected objects as context
+- Agent can call `modify_selected` tool that applies property updates to all selected objects
+- Agent can call `add_relative_to_selection` tool that adds new object positioned relative to selection centroid
+- `npm test` exits 0 including a test that `modify_selected` correctly updates all selected object properties
+- One git commit: "task L4: AI agent editing of selected shapes"
+
+---
+
+### Task L5 — Space+drag canvas pan (✅ ALREADY IN APP.JSX — VERIFY AND COMMIT)
+**Files: `src/App.jsx`**
+
+Space+drag to pan is already implemented in App.jsx (space state tracking + OrbitControls mouseButtons override). Verify it works correctly, ensure it is committed, and add a unit test confirming the space key state logic.
+
+**Definition of done:**
+- Space+drag pans the canvas (left mouse becomes PAN while space held)
+- Release space returns to rotate mode immediately
+- `npm test` exits 0 including a test for the space key state management
+- One git commit: "task L5: verify and test space+drag pan"
