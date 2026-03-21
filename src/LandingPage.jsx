@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { MeshDistortMaterial, Sphere, Float } from '@react-three/drei';
-import { Bot, Sparkles, ChevronRight } from 'lucide-react';
+import { Bot, Sparkles, ChevronRight, Layers, Zap, MousePointer2 } from 'lucide-react';
 
 function AnimatedBackground() {
   const mesh = useRef();
@@ -31,7 +31,7 @@ const LandingPage = ({ onLogin }) => {
   };
 
   return (
-    <div className="relative w-full h-screen overflow-hidden text-white" style={{ backgroundColor: theme.background }}>
+    <div className="relative w-full min-h-screen text-white" style={{ backgroundColor: theme.background }}>
       {/* 3D Background */}
       <div className="absolute inset-0 z-0">
         <Canvas camera={{ position: [0, 0, 5], fov: 50 }}>
@@ -44,37 +44,64 @@ const LandingPage = ({ onLogin }) => {
 
       {/* Navigation */}
       <nav className="absolute top-0 left-0 w-full p-8 z-30 flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-[#7C3AED] flex items-center justify-center font-bold">P</div>
-          <span className="text-xl font-bold tracking-tight">Sculpt3D</span>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#7C3AED] to-[#4F46E5] flex items-center justify-center font-bold text-lg shadow-lg shadow-[#7C3AED]/20">P</div>
+          <span className="text-2xl font-bold tracking-tighter">Plenum3D</span>
         </div>
         <button 
           onClick={onLogin}
-          className="px-6 py-2 rounded-full text-sm font-bold bg-[#1A1A1A] border border-[#333] hover:border-[#555] transition-all"
+          className="px-6 py-2.5 rounded-full text-sm font-bold bg-[#1A1A1A] border border-[#333] hover:border-[#555] transition-all"
         >
           Sign in
         </button>
       </nav>
 
       {/* Content */}
-      <div className="relative z-20 flex flex-col items-center justify-center h-full text-center px-4">
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#7C3AED]/10 border border-[#7C3AED]/20 text-[#A78BFA] text-sm font-medium mb-6">
-          <Sparkles size={14} /> Powered by Advanced AI
-        </div>
-        <h1 className="text-6xl md:text-8xl font-black tracking-tighter mb-6 max-w-4xl" style={{ color: theme.text }}>
-          Transform Prompts into <span style={{ color: theme.primary }}>3D Models</span> Instantly.
+      <div className="relative z-20 flex flex-col items-center justify-center min-h-screen text-center px-4 pt-32 pb-20">
+        <h1 className="text-7xl md:text-9xl font-black tracking-tighter mb-6 max-w-5xl leading-none" style={{ color: theme.text }}>
+          AI 3D Editor <br/> for <span style={{ color: theme.primary }}>Three.js</span>
         </h1>
-        <p className="text-xl text-gray-400 mb-10 max-w-2xl">
-          The world's most intuitive AI 3D JS tool. Build complex geometry, animate scenes, and export assets with just a text prompt.
+        <p className="text-2xl text-gray-400 mb-12 max-w-2xl font-light">
+          Build complex scenes faster with AI-assisted generation and procedural editing.
         </p>
         <button 
           onClick={onLogin}
-          className="group flex items-center gap-2 px-10 py-4 rounded-full text-lg font-bold tracking-tight transition-all hover:scale-105 shadow-xl shadow-[#7C3AED]/20"
+          className="group flex items-center gap-2 px-12 py-5 rounded-full text-xl font-bold tracking-tight transition-all hover:scale-105 shadow-xl shadow-[#7C3AED]/20"
           style={{ backgroundColor: theme.primary, color: 'white' }}
         >
-          Launch Editor <ChevronRight size={20} className="group-hover:translate-x-1 transition-transform" />
+          Launch Editor <ChevronRight size={22} className="group-hover:translate-x-1 transition-transform" />
         </button>
       </div>
+
+      {/* Features Section */}
+      <section className="relative z-20 px-8 py-24 bg-[#0A0A0A]/90 backdrop-blur-sm border-t border-[#1A1A1A]">
+        <h2 className="text-4xl font-bold text-center mb-16">Powerful Features</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          {[
+            { title: "Intelligent Layer Management", icon: Layers, desc: "Organize and manipulate complex scene hierarchies effortlessly." },
+            { title: "AI-Driven Shape Refinement", icon: Sparkles, desc: "Transform rough drafts into precise, production-ready models." },
+            { title: "Real-time Canvas Panning", icon: MousePointer2, desc: "Smooth, interactive navigation designed for rapid iteration." }
+          ].map((feature, i) => (
+            <div key={i} className="p-8 rounded-3xl bg-[#111] border border-[#222] hover:border-[#7C3AED]/50 transition-colors">
+              <feature.icon className="w-10 h-10 text-[#7C3AED] mb-6" />
+              <h3 className="text-2xl font-bold mb-4">{feature.title}</h3>
+              <p className="text-gray-400 leading-relaxed">{feature.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Benefits Section */}
+      <section className="relative z-20 px-8 py-24 bg-[#0A0A0A]">
+        <h2 className="text-4xl font-bold text-center mb-16">Why Plenum3D?</h2>
+        <div className="flex flex-wrap justify-center gap-6 max-w-4xl mx-auto text-center">
+          {["High-Speed Generation", "Browser-Native Performance", "Procedural Efficiency"].map((benefit, i) => (
+            <div key={i} className="px-8 py-4 rounded-full bg-[#1A1A1A] border border-[#333] text-lg font-medium">
+              {benefit}
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
   );
 };

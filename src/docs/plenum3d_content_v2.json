@@ -1,0 +1,19 @@
+{
+  "theme": {
+    "background": "#0A0A0A",
+    "primary": "#7C3AED",
+    "text": "#F8FAFC",
+    "font": "Inter, sans-serif"
+  },
+  "components": {
+    "hero": {
+      "headline": "The Future of 3D Design.",
+      "subheadline": "Autonomous, procedural, and browser-native.",
+      "cta": "Launch Editor"
+    },
+    "canvas": {
+      "background": "rgba(10, 10, 10, 0.8)",
+      "overlay": "linear-gradient(to bottom, transparent, #0A0A0A)"
+    }
+  }
+}
