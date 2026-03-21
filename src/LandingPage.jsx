@@ -78,9 +78,9 @@ const LandingPage = ({ onLogin }) => {
         <h2 className="text-4xl font-bold text-center mb-16">Powerful Features</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
           {[
-            { title: "Intelligent Layer Management", icon: Layers, desc: "Organize and manipulate complex scene hierarchies effortlessly." },
-            { title: "AI-Driven Shape Refinement", icon: Sparkles, desc: "Transform rough drafts into precise, production-ready models." },
-            { title: "Real-time Canvas Panning", icon: MousePointer2, desc: "Smooth, interactive navigation designed for rapid iteration." }
+            { title: "Intelligent Layer Management", icon: Layers, desc: "Organize and manipulate complex scene hierarchies effortlessly with nested grouping." },
+            { title: "AI-Driven Shape Refinement", icon: Sparkles, desc: "Transform rough drafts into precise, production-ready models using AI-driven mesh editing." },
+            { title: "Real-time Canvas Panning", icon: MousePointer2, desc: "Smooth, interactive navigation with Space+Drag designed for rapid iteration." }
           ].map((feature, i) => (
             <div key={i} className="p-8 rounded-3xl bg-[#111] border border-[#222] hover:border-[#7C3AED]/50 transition-colors">
               <feature.icon className="w-10 h-10 text-[#7C3AED] mb-6" />
@@ -95,13 +95,23 @@ const LandingPage = ({ onLogin }) => {
       <section className="relative z-20 px-8 py-24 bg-[#0A0A0A]">
         <h2 className="text-4xl font-bold text-center mb-16">Why Plenum3D?</h2>
         <div className="flex flex-wrap justify-center gap-6 max-w-4xl mx-auto text-center">
-          {["High-Speed Generation", "Browser-Native Performance", "Procedural Efficiency"].map((benefit, i) => (
-            <div key={i} className="px-8 py-4 rounded-full bg-[#1A1A1A] border border-[#333] text-lg font-medium">
-              {benefit}
+          {[
+            { label: "High-Speed Generation", desc: "Zero-latency generation pipelines." },
+            { label: "Browser-Native Performance", desc: "Built on raw WebGL/Three.js." },
+            { label: "Procedural Efficiency", desc: "Non-destructive editing with full state management." }
+          ].map((benefit, i) => (
+            <div key={i} className="p-8 rounded-3xl bg-[#1A1A1A] border border-[#333] hover:border-[#7C3AED]/30 transition-colors">
+              <div className="text-xl font-bold mb-2">{benefit.label}</div>
+              <div className="text-gray-400 text-sm">{benefit.desc}</div>
             </div>
           ))}
         </div>
       </section>
+
+      {/* Footer */}
+      <footer className="relative z-20 px-8 py-12 text-center text-gray-600 border-t border-[#1A1A1A]">
+        <p>&copy; 2026 Plenum3D. All rights reserved. Your browser-native AI design powerhouse.</p>
+      </footer>
     </div>
   );
 };
