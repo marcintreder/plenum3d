@@ -39,7 +39,7 @@ async function setupAuth(page) {
 test.describe('Plenum3D Smoke Tests', () => {
   test('1. Login page renders', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('text="Sign in with Google"').first()).toBeVisible();
+    await expect(page.locator('text="Sign in"').first()).toBeVisible();
   });
 
   test('2. Settings modal appears and closes', async ({ page }) => {

@@ -157,6 +157,19 @@ const CameraModeSwitcher = () => null;
 // ViewportControls are now rendered outside Canvas (see below) using cameraRef
 
 const App = ({ user, onLogout, initialData }) => {
+  const [isSpaceDown, setIsSpaceDown] = React.useState(false);
+  
+  React.useEffect(() => {
+    const handleKeyDown = (e) => { if (e.code === 'Space') setIsSpaceDown(true); };
+    const handleKeyUp = (e) => { if (e.code === 'Space') setIsSpaceDown(false); };
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
+
   const [isModalOpen, setModalOpen] = useState(false);
   const [isCodeViewOpen, setCodeViewOpen] = useState(false);
   const [prompt, setPrompt] = useState("");
@@ -914,7 +927,19 @@ const App = ({ user, onLogout, initialData }) => {
           ))}
 
           <Grid infiniteGrid fadeDistance={50} sectionColor="#333" cellColor="#222" />
-          <OrbitControls makeDefault enabled={orbitEnabled} enableZoom enablePan enableRotate zoomSpeed={1.2} />
+          <OrbitControls 
+            makeDefault 
+            enabled={orbitEnabled} 
+            enableZoom 
+            enableRotate={!isSpaceDown}
+            zoomSpeed={1.2} 
+            enablePan={isSpaceDown}
+            mouseButtons={{
+              LEFT: isSpaceDown ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE,
+              MIDDLE: THREE.MOUSE.DOLLY,
+              RIGHT: THREE.MOUSE.PAN
+            }}
+          />
         </Canvas>
         <ViewportControls setView={(view) => {
           const cam = cameraRef.current;
