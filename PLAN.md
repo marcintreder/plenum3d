@@ -360,57 +360,19 @@ Add an `extract_component` tool to `AGENT_TOOLS` with `{ group_id: string, compo
 
 > These tasks were requested by the user but NOT executed by the previous factory run. They must be completed in full with the proper pipeline.
 
-### Task L1 — Modern world-class landing page ✅ COMPLETED (commit dfa07a2, 2026-03-21)
-**Files: `src/LandingPage.jsx`, `src/components/LandingPage/Hero.jsx`, `src/components/LandingPage/Features.jsx`, `src/components/LandingPage/SocialProof.jsx`, `src/components/LandingPage/Footer.jsx`**
+### Task L1 — Modern world-class landing page ✅ COMPLETED (commit 70238ae, 2026-03-21)
+**Implemented: `src/LandingPage.jsx`, `src/components/LandingPage/Hero.jsx`, `src/components/LandingPage/Features.jsx`**
 
-⚠️ PREVIOUS ATTEMPT WAS REJECTED. The current implementation is stubs (Hero: 19 lines, Features: 24 lines, SocialProof: 12 lines, Footer: 8 lines). This is NOT acceptable. Rewrite all components from scratch with real, rich content.
+**⚠️ DO NOT MODIFY THESE FILES. The landing page is in its final approved form.**
 
-**MANDATORY: Use Stitch MCP before writing any code.**
-1. Call `list_projects` — find or create the Plenum3D project
-2. Call `generate_screen_from_text` for each section below (4 separate calls). Include the full Plenum3D design DNA in each prompt: background #0F0F0F, accent #7C3AED/#A78BFA, Inter font, dark Blender/Figma aesthetic.
-3. Call `get_screen_code` on each generated screen — use the returned HTML as the design reference
-4. Write `stitch-designs.md` with actual screen IDs from the tool responses
-5. Only then implement the JSX based on the Stitch output
-
-**Section specifications (each must be substantial — no stubs):**
-
-**Hero** (`Hero.jsx` — minimum 60 lines):
-- Full-viewport section with animated R3F canvas background (rotating 3D object using `useFrame`)
-- Large headline: "Build 3D Worlds with AI" (or similar punchy variant)
-- Subheadline: 2 sentences describing the product value
-- Two CTAs: primary "Launch Editor" (purple pill button) + secondary "View on GitHub" (ghost button)
-- Floating badge: "Powered by Claude AI"
-- Gradient overlay between canvas and text for readability
-
-**Features** (`Features.jsx` — minimum 80 lines):
-- Section headline + subheadline
-- 6 feature cards (NOT 4), each with:
-  - Lucide icon (large, purple)
-  - Bold title
-  - 2–3 sentence description (not one-liners)
-  - Subtle hover animation (scale or border glow)
-- Cards: AI Model Generation, Natural Language Editing, Multi-Scene Projects, GLB Export, Primitive Sculpting, Cloud Sync
-- Grid: 3 columns on desktop, 2 on tablet, 1 on mobile
-
-**SocialProof** (`SocialProof.jsx` — minimum 50 lines):
-- "Trusted tech" section with real logos: React, Three.js, Claude AI, Vercel, Neon
-- 3 fake testimonial cards with avatar initials, name, role, quote (2–3 sentences each)
-- Stats row: "∞ Shapes", "4 AI Providers", "1-click GLB Export"
-
-**Footer** (`Footer.jsx` — minimum 40 lines):
-- Logo + tagline on left
-- 3 link columns: Product (Editor, Export, Primitives), Developer (GitHub, Docs, API), Company (About, Blog, Contact) — links can be `href="#"` placeholders
-- Bottom row: copyright + "Built with Claude AI" badge
-
-**Definition of done — ALL must pass before declaring complete:**
-- Each component file meets its minimum line count (verify with `wc -l`)
-- `src/components/LandingPage/Hero.jsx` ≥ 60 lines
-- `src/components/LandingPage/Features.jsx` ≥ 80 lines
-- `src/components/LandingPage/SocialProof.jsx` ≥ 50 lines
-- `src/components/LandingPage/Footer.jsx` ≥ 40 lines
-- `stitch-designs.md` exists and contains real Stitch screen IDs (not placeholders)
-- `npm test` exits 0 with zero skips, including a unit test that asserts: (1) Hero renders an `<h1>` with text, (2) Features renders exactly 6 cards, (3) SocialProof renders 3 testimonials, (4) Footer renders 3 link columns
-- One git commit: "task L1: world-class landing page — Hero, Features, SocialProof, Footer"
+Current state (as of 2026-03-21, per user request):
+- **Hero** (`Hero.jsx`, 117 lines): Full-viewport section with live R3F Canvas showing a rotating F1 car (via `generateF1()` from `f1Model.js`). Nav has only "Sign in" (→ `/auth/google`). Badge: "Powered by AI". Headline: "AI-Powered 3D Modeling For Everyone". Subheadline: "Describe an object to the AI agent, have it generate it with r3f (three.js) and get into tweaking it with advanced tooling". CTA: "Start Building Free". Viewport shows AI prompt overlay with `"A sleek Formula 1 racing car in metallic red"`. No stats row.
+- **Features** (`Features.jsx`, 114 lines): 6 feature cards with `material-symbols-outlined` icons and hover animations. Visual anchor section. `data-testid="feature-card"` on each card.
+- **SocialProof and Footer were intentionally removed by user** — do not re-add them.
+- `src/LandingPage.jsx`: renders only `<Hero />` and `<Features />`.
+- Tests: `src/test/unit/landingPage.test.jsx` tests Hero h1 and 6 feature cards only.
+- R3F mocks: `src/test/__mocks__/r3f.js` and `drei.js` prevent BVH crash in tests.
+- `vitest.config.ts` aliases `@react-three/fiber` and `@react-three/drei` to mock files.
 
 ---
 
