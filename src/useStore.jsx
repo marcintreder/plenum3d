@@ -149,6 +149,21 @@ const useStore = create((set, get) => ({
     });
   },
 
+  mergeGroups: (groupIds) => set(state => {
+    const targetGroupId = groupIds[0];
+    const otherGroupIds = groupIds.slice(1);
+    const newObjects = state.objects.map(o => 
+      otherGroupIds.includes(o.groupId) ? { ...o, groupId: targetGroupId } : o
+    );
+    const newGroups = state.groups.filter(g => !otherGroupIds.includes(g.id));
+    return { 
+      objects: newObjects, 
+      groups: newGroups, 
+      selectedGroupId: targetGroupId, 
+      selectedGroupIds: [targetGroupId] 
+    };
+  }),
+
   removeGroup: (groupId) => set(state => ({
     groups: state.groups.filter(g => g.id !== groupId),
     objects: state.objects.map(o => o.groupId === groupId ? { ...o, groupId: null } : o),

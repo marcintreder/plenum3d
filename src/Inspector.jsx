@@ -333,7 +333,13 @@ const Inspector = ({ onScreenshot, user, searchFilter = '', onSearchChange }) =>
                 <div
                   key={group.id}
                   className={`flex items-center justify-between px-2 py-1.5 rounded cursor-pointer transition-all group/row ${isGroupSel ? 'bg-[#7C3AED]/20 border border-[#7C3AED]/30' : 'hover:bg-[#1E1E1E] border border-transparent'}`}
-                  onClick={() => setSelectedGroupId(group.id)}
+                  onClick={(e) => {
+                    if (e.metaKey || e.ctrlKey) {
+                      toggleSelect(group.id, true);
+                    } else {
+                      setSelectedGroupId(group.id);
+                    }
+                  }}
                   onContextMenu={(e) => showCtx(e, [
                     { label: 'Ungroup (keep objects)', action: () => { saveHistory(); removeGroup(group.id); } },
                     { label: 'Delete group + contents', danger: true, action: () => {
@@ -341,6 +347,7 @@ const Inspector = ({ onScreenshot, user, searchFilter = '', onSearchChange }) =>
                       objects.filter(o => o.groupId === group.id).forEach(o => deleteObject(o.id));
                       removeGroup(group.id);
                     }},
+                    ...(selectedGroupIds.length > 1 && selectedGroupIds.includes(group.id) ? [{ label: 'Merge selected groups', action: () => { saveHistory(); mergeGroups(selectedGroupIds); } }] : []),
                   ])}
                 >
                   <div className="flex items-center gap-1.5 flex-1 min-w-0">
