@@ -361,25 +361,56 @@ Add an `extract_component` tool to `AGENT_TOOLS` with `{ group_id: string, compo
 > These tasks were requested by the user but NOT executed by the previous factory run. They must be completed in full with the proper pipeline.
 
 ### Task L1 — Modern world-class landing page
-**Files: `src/LandingPage.jsx`, `src/components/LandingPage/` (new directory for sub-components)**
+**Files: `src/LandingPage.jsx`, `src/components/LandingPage/Hero.jsx`, `src/components/LandingPage/Features.jsx`, `src/components/LandingPage/SocialProof.jsx`, `src/components/LandingPage/Footer.jsx`**
 
-Redesign the landing page from scratch to be world-class, inspiring, and conversion-optimised. Use Stitch MCP to generate the full design first (factoryStitch must run before factoryDeveloper on this task).
+⚠️ PREVIOUS ATTEMPT WAS REJECTED. The current implementation is stubs (Hero: 19 lines, Features: 24 lines, SocialProof: 12 lines, Footer: 8 lines). This is NOT acceptable. Rewrite all components from scratch with real, rich content.
 
-Key requirements:
-- Hero section: animated 3D canvas preview (use a read-only R3F Canvas showing a rotating sample model), headline, subheadline, CTA button
-- Features grid: 4–6 feature cards with icons, short descriptions, micro-animations on hover
-- Social proof: "Built with AI" badge, tech stack logos (React, Three.js, Claude)
-- Footer: tagline, GitHub link, sign-in CTA
-- Fully responsive: mobile-first, works on 375px–1440px
-- Dark theme consistent with Plenum3D design system (#0F0F0F bg, #7C3AED accent)
-- Performance: no layout shift, LCP < 2.5s
+**MANDATORY: Use Stitch MCP before writing any code.**
+1. Call `list_projects` — find or create the Plenum3D project
+2. Call `generate_screen_from_text` for each section below (4 separate calls). Include the full Plenum3D design DNA in each prompt: background #0F0F0F, accent #7C3AED/#A78BFA, Inter font, dark Blender/Figma aesthetic.
+3. Call `get_screen_code` on each generated screen — use the returned HTML as the design reference
+4. Write `stitch-designs.md` with actual screen IDs from the tool responses
+5. Only then implement the JSX based on the Stitch output
 
-**Definition of done:**
-- `src/LandingPage.jsx` renders without errors
-- 3D preview canvas visible in hero with a rotating object
-- All sections render on mobile and desktop (screenshot evidence)
-- `npm test` exits 0 with zero skips, including a unit test that renders LandingPage and asserts hero, features, and CTA sections are present
-- One git commit: "task L1: world-class landing page redesign"
+**Section specifications (each must be substantial — no stubs):**
+
+**Hero** (`Hero.jsx` — minimum 60 lines):
+- Full-viewport section with animated R3F canvas background (rotating 3D object using `useFrame`)
+- Large headline: "Build 3D Worlds with AI" (or similar punchy variant)
+- Subheadline: 2 sentences describing the product value
+- Two CTAs: primary "Launch Editor" (purple pill button) + secondary "View on GitHub" (ghost button)
+- Floating badge: "Powered by Claude AI"
+- Gradient overlay between canvas and text for readability
+
+**Features** (`Features.jsx` — minimum 80 lines):
+- Section headline + subheadline
+- 6 feature cards (NOT 4), each with:
+  - Lucide icon (large, purple)
+  - Bold title
+  - 2–3 sentence description (not one-liners)
+  - Subtle hover animation (scale or border glow)
+- Cards: AI Model Generation, Natural Language Editing, Multi-Scene Projects, GLB Export, Primitive Sculpting, Cloud Sync
+- Grid: 3 columns on desktop, 2 on tablet, 1 on mobile
+
+**SocialProof** (`SocialProof.jsx` — minimum 50 lines):
+- "Trusted tech" section with real logos: React, Three.js, Claude AI, Vercel, Neon
+- 3 fake testimonial cards with avatar initials, name, role, quote (2–3 sentences each)
+- Stats row: "∞ Shapes", "4 AI Providers", "1-click GLB Export"
+
+**Footer** (`Footer.jsx` — minimum 40 lines):
+- Logo + tagline on left
+- 3 link columns: Product (Editor, Export, Primitives), Developer (GitHub, Docs, API), Company (About, Blog, Contact) — links can be `href="#"` placeholders
+- Bottom row: copyright + "Built with Claude AI" badge
+
+**Definition of done — ALL must pass before declaring complete:**
+- Each component file meets its minimum line count (verify with `wc -l`)
+- `src/components/LandingPage/Hero.jsx` ≥ 60 lines
+- `src/components/LandingPage/Features.jsx` ≥ 80 lines
+- `src/components/LandingPage/SocialProof.jsx` ≥ 50 lines
+- `src/components/LandingPage/Footer.jsx` ≥ 40 lines
+- `stitch-designs.md` exists and contains real Stitch screen IDs (not placeholders)
+- `npm test` exits 0 with zero skips, including a unit test that asserts: (1) Hero renders an `<h1>` with text, (2) Features renders exactly 6 cards, (3) SocialProof renders 3 testimonials, (4) Footer renders 3 link columns
+- One git commit: "task L1: world-class landing page — Hero, Features, SocialProof, Footer"
 
 ---
 
