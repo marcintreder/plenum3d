@@ -31,12 +31,12 @@ export const Hero = ({ onLaunch }) => (
         <div className="text-xl font-black tracking-tighter text-white">
           Plenum<span className="text-[#7C3AED]">3D</span>
         </div>
-        <a
-          href="/auth/google"
+        <button
+          onClick={onLaunch}
           className="text-sm font-medium text-[#9CA3AF] hover:text-white transition-colors border border-[#333] hover:border-[#7C3AED]/50 px-5 py-2 rounded-full"
         >
           Sign in
-        </a>
+        </button>
       </div>
     </nav>
 
